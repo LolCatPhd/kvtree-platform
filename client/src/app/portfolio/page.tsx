@@ -5,7 +5,7 @@ export default function Portfolio() {
         <div className="container mx-auto">
           <h1 className="text-3xl font-bold text-center mb-8">
             Our Portfolio
-          </h2>
+          </h1>
           <p className="text-center text-gray-600 mb-8 max-w-2xl mx-auto">
             A selection of our recent tree felling, stump grinding, and site
             clearing projects across Kempton Park and surrounding areas.
