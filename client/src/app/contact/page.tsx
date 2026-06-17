@@ -13,6 +13,7 @@ export default function Contact() {
   const [uploadedPhotos, setUploadedPhotos] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -31,9 +32,34 @@ export default function Contact() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    // In a real app, you would send this data to your backend API
-    // For now, we'll just simulate a successful submission
-    setTimeout(() => {
+    setSubmitError(null);
+    
+    try {
+      // In a real app, you would send this data to your backend API
+      const response = await fetch("http://localhost:5000/api/leads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          address: formData.address,
+          service: formData.service,
+          description: formData.description,
+          // Note: Photo upload handling will be implemented in a future update
+          // For now, we're not sending photos as the API doesn't handle file uploads yet
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to submit: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log("Lead created:", result);
+      
       setIsSubmitting(false);
       setSubmitSuccess(true);
       // Reset form
@@ -47,7 +73,11 @@ export default function Contact() {
         preferredDate: "",
       });
       setUploadedPhotos([]);
-    }, 1500);
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      setIsSubmitting(false);
+      setSubmitError(error.message || "Failed to submit. Please try again.");
+    }
   };
 
   if (submitSuccess) {
@@ -217,6 +247,10 @@ export default function Contact() {
                   </p>
                 )}
               </div>
+
+              {submitError && (
+                <p className="mt-2 text-sm text-red-500">{submitError}</p>
+              )}
 
               <button
                 type="submit"

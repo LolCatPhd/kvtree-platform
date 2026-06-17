@@ -48,7 +48,7 @@ export default function About() {
                   Insured & Certified
                 </p>
               </div>
-            }
+            </div>
           </div>
         </div>
       </section>
