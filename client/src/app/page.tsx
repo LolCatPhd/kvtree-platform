@@ -1,4 +1,6 @@
 import Image from 'next/image';
+import treeImg from './portfolio/portfolio-tree-felling-1.jpg.webp';
+import stumpImg from './portfolio/portfolio-stump-grinding-1.jpg.webp';
 
 export default function Home() {
   return (
@@ -98,11 +100,11 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="border rounded-lg overflow-hidden hover:shadow-lg transition">
               <Image
-                src="/optimized/portfolio-tree-felling-1.jpg-600x400.webp"
+                src={treeImg}
                 alt="Tree felling project in Kempton Park"
                 className="w-full h-48 object-cover"
-                width={600}
-                height={400}
+                width={1200}
+                height={800}
               />
               <div className="p-4">
                 <h3 className="text-lg font-bold mb-2">Tree Felling in Kempton Park</h3>
@@ -111,11 +113,11 @@ export default function Home() {
             </div>
             <div className="border rounded-lg overflow-hidden hover:shadow-lg transition">
               <Image
-                src="/optimized/portfolio-stump-grinding-1.jpg-600x400.webp"
+                src={stumpImg}
                 alt="Stump grinding project in Edenvale"
                 className="w-full h-48 object-cover"
-                width={600}
-                height={400}
+                width={1200}
+                height={800}
               />
               <div className="p-4">
                 <h3 className="text-lg font-bold mb-2">Stump Grinding in Edenvale</h3>
