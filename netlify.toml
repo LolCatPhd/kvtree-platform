@@ -1,0 +1,28 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+  base = "client"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[plugins]
+  # Netlify Next.js plugin for optimal Next.js support
+  # https://github.com/netlify/netlify-plugin-nextjs
+  package = "@netlify/plugin-nextjs"
+
+[context.production.environment]
+  # Set production environment variables
+  NODE_ENV = "production"
+  # API URL will be set in Netlify dashboard pointing to Railway deployment
+  # Example: NEXT_PUBLIC_API_URL = "https://your-railway-app.up.railway.app"
+
+[context.deploy-preview.environment]
+  # Preview deployments (pull requests)
+  NODE_ENV = "development"
+
+[context.branch-deploy.environment]
+  # Branch deployments
+  NODE_ENV = "development"
