@@ -1,8 +1,9 @@
 // client/next.config.mjs
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Disable Turbopack via environment variable (see netlify.toml)
-  // Recommended for Netlify
+  experimental: {
+    turbopack: false,
+  },
   output: 'standalone',
   reactStrictMode: true,
 };
