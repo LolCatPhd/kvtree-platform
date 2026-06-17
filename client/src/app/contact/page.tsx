@@ -74,7 +74,7 @@ export default function Contact() {
         preferredDate: "",
       });
       setUploadedPhotos([]);
-    } catch (error: Error) {
+    } catch (error: any) {
       console.error("Error submitting form:", error);
       setIsSubmitting(false);
       setSubmitError(error.message || "Failed to submit. Please try again.");
