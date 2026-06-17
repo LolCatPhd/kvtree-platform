@@ -10,10 +10,13 @@
   # API URL will be set in Netlify dashboard pointing to Railway deployment
   # Example: NEXT_PUBLIC_API_URL = "https://your-railway-app.up.railway.app"
   # NODE_ENV intentionally not set here to allow devDependencies installation during build
+  NEXT_PRIVATE_TURBOPACK = "0"
 
 [context.deploy-preview.environment]
   NODE_ENV = "development"
+  NEXT_PRIVATE_TURBOPACK = "0"
 
 [context.branch-deploy.environment]
   NODE_ENV = "development"
+  NEXT_PRIVATE_TURBOPACK = "0"
 # Trigger Netlify build
