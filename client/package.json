@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "prebuild": "node scripts/check-env.js",
+    "optimize-images": "node scripts/optimize-images.js"
   },
   "dependencies": {
     "next": "16.2.9",

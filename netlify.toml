@@ -3,20 +3,11 @@
   publish = ".next"
   base = "client"
 
+[build.environment]
+  NODE_VERSION = "22"
+  NEXT_TELEMETRY_DISABLED = "1"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-[context.production.environment]
-  # API URL will be set in Netlify dashboard pointing to Railway deployment
-  # Example: NEXT_PUBLIC_API_URL = "https://your-railway-app.up.railway.app"
-  # NODE_ENV intentionally not set here to allow devDependencies installation during build
-  NEXT_PRIVATE_TURBOPACK = "0"
-
-[context.deploy-preview.environment]
-  NODE_ENV = "development"
-  NEXT_PRIVATE_TURBOPACK = "0"
-
-[context.branch-deploy.environment]
-  NODE_ENV = "development"
-  NEXT_PRIVATE_TURBOPACK = "0"
-# Trigger Netlify build
+# No manual redirects here — let the plugin handle routing

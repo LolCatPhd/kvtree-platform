@@ -1,5 +1,6 @@
 'use client';
 import { useState } from "react";
+import { apiPath } from "@/lib/config";
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -37,7 +38,7 @@ export default function Contact() {
     
     try {
       // In a real app, you would send this data to your backend API
-      const response = await fetch("http://localhost:5000/api/leads", {
+      const response = await fetch(apiPath("/api/leads"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
