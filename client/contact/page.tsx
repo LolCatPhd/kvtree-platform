@@ -1,5 +1,4 @@
 'use client';
-
 import { useState } from "react";
 
 export default function Contact() {
@@ -12,13 +11,13 @@ export default function Contact() {
     description: "",
     preferredDate: "",
   });
-  const [uploadedPhotos, setUploadedPhotos] = useState<File[]>([]);
+  const [uploadedPhotos, setUploadedPhotos] = useState([] as File[]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target as HTMLInputElement;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -28,7 +27,7 @@ export default function Contact() {
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []) as File[];
-    setUploadedPhotos(prev => [...prev, ...files]);
+    setUploadedPhotos((prev) => [...prev, ...files]);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -75,10 +74,10 @@ export default function Contact() {
         preferredDate: "",
       });
       setUploadedPhotos([]);
-    } catch (error: Error) {
+    } catch (error: any) {
       console.error("Error submitting form:", error);
       setIsSubmitting(false);
-      setSubmitError(error.message || "Failed to submit. Please try again.");
+      setSubmitError(error?.message || "Failed to submit. Please try again.");
     }
   };
 
@@ -160,7 +159,7 @@ export default function Contact() {
                     value={formData.phone}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500
+                    className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
                 <div>
@@ -174,7 +173,7 @@ export default function Contact() {
                     value={formData.address}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500
+                    className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
               </div>
@@ -189,7 +188,7 @@ export default function Contact() {
                   value={formData.service}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500
+                  className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="">Select a service</option>
                   <option value="tree-felling">Tree Felling</option>
@@ -197,4 +196,139 @@ export default function Contact() {
                   <option value="site-clearing">Site Clearing</option>
                   <option value="pruning">Pruning & Trimming</option>
                   <option value="wood-sales">Wood Sales</option>
-                  <option value="emergency">Emergency Services
+                  <option value="emergency">Emergency Services</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="preferredDate" className="block text-sm font-medium mb-2">
+                  Preferred Date (Optional)
+                </label>
+                <input
+                  type="date"
+                  id="preferredDate"
+                  name="preferredDate"
+                  value={formData.preferredDate}
+                  onChange={handleDateChange}
+                  className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="description" className="block text-sm font-medium mb-2">
+                  Project Description
+                </label>
+                <textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  rows={4}
+                  required
+                  className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="photos" className="block text-sm font-medium mb-2">
+                  Upload Photos (Optional)
+                </label>
+                <input
+                  type="file"
+                  id="photos"
+                  accept="image/*"
+                  multiple
+                  onChange={handlePhotoUpload}
+                  className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+                {uploadedPhotos.length > 0 && (
+                  <p className="mt-2 text-sm text-gray-600">
+                    {uploadedPhotos.length} photo{uploadedPhotos.length !== 1 ? "s" : ""}
+                    selected
+                  </p>
+                )}
+              </div>
+
+              {submitError && (
+                <p className="mt-2 text-sm text-red-500">{submitError}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full bg-green-900 text-white px-6 py-3 rounded-full hover:bg-green-800 transition disabled:opacity-50"
+              >
+                {isSubmitting ? "Submitting..." : "Request Free Quote"}
+              </button>
+            </form>
+          </div>
+
+          {/* Contact Info & Map */}
+          <div className="space-y-6">
+            <div className="border rounded-lg p-6">
+              <h2 className="text-xl font-bold mb-4">Contact Information</h2>
+              <p className="mb-4">
+                <span className="font-bold">Phone:</span> +27 11 123 4567
+              </p>
+              <p className="mb-4">
+                <span className="font-bold">Email:</span> info@kvtree.co.za
+              </p>
+              <p className="mb-4">
+                <span className="font-bold">Address:</span>
+                123 Tree Street, Kempton Park, 1619
+              </p>
+              <p className="mb-4">
+                <span className="font-bold">Business Hours:</span>
+                Monday - Friday: 7:00 AM - 5:00 PM<br />
+                Saturday: 8:00 AM - 1:00 PM<br />
+                Sunday: Closed
+              </p>
+              <div className="flex space-x-4">
+                <a
+                  href="https://facebook.com"
+                  className="text-green-900 hover:text-green-700"
+                >
+                  Facebook
+                </a>
+                <a
+                  href="https://instagram.com"
+                  className="text-green-900 hover:text-green-700"
+                >
+                  Instagram
+                </a>
+                <a
+                  href="https://whatsapp.com"
+                  className="text-green-900 hover:text-green-700"
+                >
+                  WhatsApp
+                </a>
+              </div>
+            </div>
+
+            <div className="border rounded-lg p-6">
+              <h2 className="text-xl font-bold mb-4">Service Area</h2>
+              <p className="text-gray-600 mb-4">
+                We proudly serve Kempton Park and the greater East Rand,
+                including:
+              </p>
+              <ul className="list-disc pl-5 space-y-2">
+                <li>Benoni</li>
+                <li>Boksburg</li>
+                <li>Edenvale</li>
+                <li>Germiston</li>
+                <li>Modderfontein</li>
+                <li>Nigel</li>
+                <li>Springs</li>
+                <li>And surrounding areas</li>
+              </ul>
+              {/* In a real app, you would embed a Google Map here */}
+              <div className="mt-4 h-48 bg-green-200 rounded-lg flex items-center justify-center">
+                <p className="text-gray-600">Map would appear here</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
