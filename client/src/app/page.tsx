@@ -1,3 +1,8 @@
+import Image from 'next/image';
+
+import treeImg from './portfolio/portfolio-tree-felling-1.jpg.webp';
+import stumpImg from './portfolio/portfolio-stump-grinding-1.jpg.webp';
+
 export default function Home() {
   return (
     <>
@@ -21,9 +26,7 @@ export default function Home() {
 
       <section className="py-12">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-8">
-            Our Services
-          </h2>
+          <h2 className="text-3xl font-bold text-center mb-8">Our Services</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="border rounded-lg p-6 hover:shadow-lg transition">
               <h3 className="text-xl font-bold mb-2">Tree Felling</h3>
@@ -70,9 +73,7 @@ export default function Home() {
 
       <section className="bg-green-50 py-12">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-8">
-            Why Choose KV Tree?
-          </h2>
+          <h2 className="text-3xl font-bold text-center mb-8">Why Choose KV Tree?</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
             <div>
               <h3 className="text-xl font-bold mb-2">Experienced</h3>
@@ -96,34 +97,32 @@ export default function Home() {
 
       <section className="py-12">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-8">
-            Recent Projects
-          </h2>
+          <h2 className="text-3xl font-bold text-center mb-8">Recent Projects</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="border rounded-lg overflow-hidden hover:shadow-lg transition">
-              <img
-                src="/placeholder-project-1.jpg"
-                alt="Tree felling project"
+              <Image
+                src={treeImg}
+                alt="Tree felling project in Kempton Park"
                 className="w-full h-48 object-cover"
+                width={1200}
+                height={800}
               />
               <div className="p-4">
                 <h3 className="text-lg font-bold mb-2">Tree Felling in Kempton Park</h3>
-                <p className="text-sm text-gray-600">
-                  Completed June 2026
-                </p>
+                <p className="text-sm text-gray-600">Completed June 2026</p>
               </div>
             </div>
             <div className="border rounded-lg overflow-hidden hover:shadow-lg transition">
-              <img
-                src="/placeholder-project-2.jpg"
-                alt="Stump grinding project"
+              <Image
+                src={stumpImg}
+                alt="Stump grinding project in Edenvale"
                 className="w-full h-48 object-cover"
+                width={1200}
+                height={800}
               />
               <div className="p-4">
                 <h3 className="text-lg font-bold mb-2">Stump Grinding in Edenvale</h3>
-                <p className="text-sm text-gray-600">
-                  Completed May 2026
-                </p>
+                <p className="text-sm text-gray-600">Completed May 2026</p>
               </div>
             </div>
           </div>
@@ -133,9 +132,7 @@ export default function Home() {
       <section className="bg-green-900 text-white py-12">
         <div className="container mx-auto text-center">
           <h2 className="text-3xl font-bold mb-6">Ready to Get Started?</h2>
-          <p className="mb-6">
-            Contact us today for a free, no-obligation quote.
-          </p>
+          <p className="mb-6">Contact us today for a free, no-obligation quote.</p>
           <a
             href="/contact"
             className="bg-green-200 text-green-900 px-6 py-3 rounded-full hover:bg-green-300 transition"
