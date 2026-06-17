@@ -1,4 +1,5 @@
 'use client';
+
 import { useState } from "react";
 
 export default function Contact() {
@@ -207,8 +208,7 @@ export default function Contact() {
                 <input
                   type="date"
                   id="preferredDate"
-                  name="preferredDate"
-                  value={formData.preferredDate}
+                  name=formData.preferredDate
                   onChange={handleDateChange}
                   className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                 />

@@ -1,9 +1,43 @@
 const express = require('express');
 require('dotenv').config();
 const cors = require('cors');
+const { Pool } = require('pg');
 
 const app = express();
+// CRITICAL: Use PORT from environment (Railway provides this)
 const port = process.env.PORT || 5000;
+
+// Add immediate logging
+console.log(`🔧 Environment check:`);
+console.log(`   PORT: ${process.env.PORT}`);
+console.log(`   DB_HOST: ${process.env.PGHOST}`);
+console.log(`   Starting server on port ${port}`);
+
+// Use PG* variables that Railway provides
+const pool = new Pool({
+  host: process.env.PGHOST,
+  port: process.env.PGPORT,
+  user: process.env.PGUSER,
+  password: process.env.PGPASSWORD,
+  database: process.env.PGDATABASE,
+});
+
+// Test database connection endpoint
+app.get('/test-db', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW() as now');
+    res.json({ 
+      message: 'Database connection successful!',
+      timestamp: result.rows[0].now 
+    });
+  } catch (err) {
+    console.error('Database connection error:', err);
+    res.status(500).json({ 
+      error: 'Database connection failed', 
+      details: err.message 
+    });
+  }
+});
 
 app.use(cors());
 app.use(express.json());
@@ -28,6 +62,7 @@ const generateId = () => counter++;
 // Health check
 app.get('/', (req, res) => {
   res.send('KV Tree API is running');
+  console.log('📡 Health check request received');
 });
 
 // Lead endpoints
@@ -141,6 +176,14 @@ app.get('/api/clients/:id', (req, res) => {
   res.json(client);
 });
 
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+const server = app.listen(port, () => {
+  console.log(`🚀 KV Tree API server listening on port ${port}`);
+});
+
+server.on('error', (err) => {
+  console.error('❌ Server error:', err);
+});
+
+server.on('listening', () => {
+  console.log(`👂 Server is now listening on port ${port}`);
 });
