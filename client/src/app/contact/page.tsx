@@ -1,6 +1,6 @@
 'use client';
 import { useState } from "react";
-import { apiPath } from "@/lib/config";
+import { apiPath } from '@/lib/config';
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -38,7 +38,7 @@ export default function Contact() {
     
     try {
       // In a real app, you would send this data to your backend API
-      const response = await fetch(apiPath("/api/leads"), {
+      const response = await fetch(apiPath('/api/leads'), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -78,7 +78,7 @@ export default function Contact() {
     } catch (error: any) {
       console.error("Error submitting form:", error);
       setIsSubmitting(false);
-      setSubmitError(error.message || "Failed to submit. Please try again.");
+      setSubmitError(error?.message || "Failed to submit. Please try again.");
     }
   };
 
@@ -209,9 +209,9 @@ export default function Contact() {
                   type="date"
                   id="preferredDate"
                   name="preferredDate"
-                  value={formData.preferredDate}
-                  onChange={handleDateChange}
-                  className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    value={formData.preferredDate}
+                    onChange={handleDateChange}
+                    className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
 
