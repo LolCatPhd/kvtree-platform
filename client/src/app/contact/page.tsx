@@ -11,13 +11,13 @@ export default function Contact() {
     description: "",
     preferredDate: "",
   });
-  const [uploadedPhotos, setUploadedPhotos] = useState([]);
+  const [uploadedPhotos, setUploadedPhotos] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target as HTMLInputElement;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -26,7 +26,7 @@ export default function Contact() {
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files ?? []) as File[];
     setUploadedPhotos((prev) => [...prev, ...files]);
   };
 
@@ -223,11 +223,10 @@ export default function Contact() {
                   name="description"
                   value={formData.description}
                   onChange={handleChange}
-                  rows="4"
+                  rows={4}
                   required
                   className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                </textarea>
+                />
               </div>
 
               <div>
