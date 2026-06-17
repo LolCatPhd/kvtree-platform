@@ -12,9 +12,9 @@
   package = "@netlify/plugin-nextjs"
 
 [context.production.environment]
-  NODE_ENV = "production"
   # API URL will be set in Netlify dashboard pointing to Railway deployment
   # Example: NEXT_PUBLIC_API_URL = "https://your-railway-app.up.railway.app"
+  # NODE_ENV intentionally not set here to allow devDependencies installation during build
 
 [context.deploy-preview.environment]
   NODE_ENV = "development"
