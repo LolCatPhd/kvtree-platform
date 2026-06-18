@@ -1,1 +1,93 @@
 @import "tailwindcss";
+
+/* ------------------------------------------------------------------ */
+/* Design tokens — a calm, premium "forest" palette with a sunlit lime */
+/* accent. Exposed to Tailwind v4 as bg-forest-*, text-lime-*, etc.    */
+/* ------------------------------------------------------------------ */
+@theme {
+  --color-forest-50: #f1f8f2;
+  --color-forest-100: #dcedde;
+  --color-forest-200: #bbdac1;
+  --color-forest-300: #8dbf98;
+  --color-forest-400: #5b9d6c;
+  --color-forest-500: #3a8050;
+  --color-forest-600: #2a653f;
+  --color-forest-700: #225134;
+  --color-forest-800: #1d422c;
+  --color-forest-900: #163322;
+  --color-forest-950: #0b1f14;
+
+  --color-lime-accent: #b9f15d;
+  --color-sand-50: #faf8f3;
+  --color-sand-100: #f3eee3;
+
+  --font-display: var(--font-display-serif), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ------------------------------------------------------------------ */
+/* Base                                                                */
+/* ------------------------------------------------------------------ */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background-color: #ffffff;
+    color: var(--color-forest-950);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background-color: var(--color-forest-900);
+    color: #fff;
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-forest-500);
+    outline-offset: 2px;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Small reusable helpers                                              */
+/* ------------------------------------------------------------------ */
+@layer components {
+  /* Page width wrapper used across all sections */
+  .wrap {
+    width: 100%;
+    margin-inline: auto;
+    max-width: 80rem; /* 1280px */
+    padding-inline: 1.25rem;
+  }
+  @media (min-width: 640px) {
+    .wrap { padding-inline: 2rem; }
+  }
+
+  /* Soft "eyebrow" label above headings */
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-forest-600);
+  }
+}
+
+/* Entrance animation for hero content */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+.animate-rise {
+  animation: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-rise-200 { animation: rise 0.7s 0.12s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-rise-400 { animation: rise 0.7s 0.24s cubic-bezier(0.22, 1, 0.36, 1) both; }

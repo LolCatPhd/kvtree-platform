@@ -1,143 +1,377 @@
-import Image from 'next/image';
-import treeImg from './portfolio/portfolio-tree-felling-1.jpg.webp';
-import stumpImg from './portfolio/portfolio-stump-grinding-1.jpg.webp';
+import Image from "next/image";
+import Link from "next/link";
+import { services } from "@/lib/services";
+import { photos } from "@/lib/photos";
+import {
+  ArrowRightIcon,
+  CheckIcon,
+  ShieldIcon,
+  ClockIcon,
+  AwardIcon,
+  LeafIcon,
+  StarIcon,
+  PhoneIcon,
+} from "@/components/icons";
+
+const stats = [
+  { value: "20+", label: "Years of experience" },
+  { value: "1,000+", label: "Projects completed" },
+  { value: "24/7", label: "Emergency response" },
+  { value: "100%", label: "Fully insured" },
+];
+
+const reasons = [
+  {
+    Icon: ShieldIcon,
+    title: "Fully insured & certified",
+    body: "Comprehensive liability cover and certified arborists on every job — total peace of mind.",
+  },
+  {
+    Icon: AwardIcon,
+    title: "Two decades of experience",
+    body: "Serving Kempton Park and the East Rand since the early 2000s, one happy customer at a time.",
+  },
+  {
+    Icon: ClockIcon,
+    title: "Fast, reliable turnaround",
+    body: "Free quotes within 24 hours and crews that show up on time and clean up after themselves.",
+  },
+  {
+    Icon: LeafIcon,
+    title: "Responsible & tidy",
+    body: "We chip and reuse green waste, recommend replanting, and leave your property spotless.",
+  },
+];
+
+const process = [
+  { step: "01", title: "Request a quote", body: "Send us a few details and photos. We respond within 24 hours." },
+  { step: "02", title: "On-site assessment", body: "We assess the tree, the risks and the access — then give a clear, fixed price." },
+  { step: "03", title: "The job, done right", body: "Our certified crew arrives on time, works safely and tidies up completely." },
+];
+
+const testimonials = [
+  {
+    quote:
+      "They removed a massive blue gum leaning over our roof without so much as a scratch on the house. Professional from quote to clean-up.",
+    name: "Marlene D.",
+    place: "Kempton Park",
+  },
+  {
+    quote:
+      "Called them at midnight when a tree came down in the storm. The crew was on site within the hour. Absolute lifesavers.",
+    name: "Sipho M.",
+    place: "Benoni",
+  },
+  {
+    quote:
+      "Fair price, friendly team, and they ground the stumps and took every last branch away. Highly recommend KV Tree.",
+    name: "Andre & Lize V.",
+    place: "Edenvale",
+  },
+];
 
 export default function Home() {
   return (
     <>
-      <section className="bg-green-900 text-white py-20">
-        <div className="container mx-auto text-center">
-          <h1 className="text-4xl font-bold mb-4">
-            Tree Felling & Stump Removal Experts in Kempton Park
-          </h1>
-          <p className="text-lg mb-6">
-            Professional, reliable, and experienced tree care services for
-            residential and commercial properties.
-          </p>
-          <a
-            href="/contact"
-            className="bg-green-200 text-green-900 px-6 py-3 rounded-full hover:bg-green-300 transition"
-          >
-            Get Free Quote
-          </a>
-        </div>
-      </section>
+      {/* ---------------------------------------------------------------- */}
+      {/* Hero                                                              */}
+      {/* ---------------------------------------------------------------- */}
+      <section className="relative isolate overflow-hidden bg-forest-950">
+        <Image
+          src={photos.hero}
+          alt="KV Tree arborist felling a large tree in a Kempton Park garden"
+          fill
+          priority
+          placeholder="blur"
+          sizes="100vw"
+          className="object-cover object-center"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-forest-950/90 via-forest-950/70 to-forest-950/30" />
+        <div className="absolute inset-0 bg-gradient-to-t from-forest-950/80 to-transparent" />
 
-      <section className="py-12">
-        <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-8">Our Services</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="border rounded-lg p-6 hover:shadow-lg transition">
-              <h3 className="text-xl font-bold mb-2">Tree Felling</h3>
-              <p>
-                Safe and efficient removal of trees of any size, including
-                hazardous trees.
-              </p>
+        <div className="wrap relative grid min-h-[88vh] items-center py-24">
+          <div className="max-w-2xl text-white">
+            <span className="animate-rise eyebrow text-lime-accent">
+              <LeafIcon className="h-4 w-4" /> Kempton Park &amp; the greater East Rand
+            </span>
+            <h1 className="animate-rise mt-5 font-display text-4xl font-semibold leading-[1.05] sm:text-5xl lg:text-6xl">
+              Tree felling &amp; stump removal, done the safe way.
+            </h1>
+            <p className="animate-rise-200 mt-6 max-w-xl text-lg text-forest-100">
+              Certified, fully-insured arborists for residential and commercial properties.
+              Free quotes within 24 hours — and a crew that leaves your place spotless.
+            </p>
+            <div className="animate-rise-400 mt-9 flex flex-wrap items-center gap-3">
+              <Link
+                href="/contact"
+                className="inline-flex items-center gap-2 rounded-full bg-lime-accent px-7 py-3.5 font-semibold text-forest-950 shadow-lg shadow-black/20 transition hover:brightness-95"
+              >
+                Get a free quote <ArrowRightIcon className="h-4 w-4" />
+              </Link>
+              <a
+                href="tel:+27111234567"
+                className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/5 px-7 py-3.5 font-semibold text-white backdrop-blur-sm transition hover:bg-white/10"
+              >
+                <PhoneIcon className="h-4 w-4" /> +27 11 123 4567
+              </a>
             </div>
-            <div className="border rounded-lg p-6 hover:shadow-lg transition">
-              <h3 className="text-xl font-bold mb-2">Stump Grinding</h3>
-              <p>
-                Complete stump removal using advanced grinding equipment to
-                restore your landscape.
-              </p>
-            </div>
-            <div className="border rounded-lg p-6 hover:shadow-lg transition">
-              <h3 className="text-xl font-bold mb-2">Site Clearing</h3>
-              <p>
-                Preparation of land for construction or landscaping by removing
-                vegetation, debris, and obstacles.
-              </p>
-            </div>
-            <div className="border rounded-lg p-6 hover:shadow-lg transition">
-              <h3 className="text-xl font-bold mb-2">Pruning & Trimming</h3>
-              <p>
-                Expert pruning to enhance tree health, appearance, and safety.
-              </p>
-            </div>
-            <div className="border rounded-lg p-6 hover:shadow-lg transition">
-              <h3 className="text-xl font-bold mb-2">Wood Sales</h3>
-              <p>
-                Quality firewood and timber available for purchase.
-              </p>
-            </div>
-            <div className="border rounded-lg p-6 hover:shadow-lg transition">
-              <h3 className="text-xl font-bold mb-2">Emergency Services</h3>
-              <p>
-                24/7 response for storm damage and hazardous tree situations.
-              </p>
+            <div className="animate-rise-400 mt-10 flex flex-wrap gap-x-6 gap-y-2 text-sm text-forest-100">
+              {["Fully insured", "Certified arborists", "24/7 emergency call-outs"].map((t) => (
+                <span key={t} className="flex items-center gap-2">
+                  <CheckIcon className="h-4 w-4 text-lime-accent" /> {t}
+                </span>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
-      <section className="bg-green-50 py-12">
-        <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-8">Why Choose KV Tree?</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-            <div>
-              <h3 className="text-xl font-bold mb-2">Experienced</h3>
-              <p>Serving the Kempton Park community for over 20 years.</p>
+      {/* Stats bar */}
+      <section className="border-b border-forest-100 bg-white">
+        <div className="wrap grid grid-cols-2 gap-y-8 py-10 md:grid-cols-4">
+          {stats.map((s) => (
+            <div key={s.label} className="text-center">
+              <div className="font-display text-3xl font-semibold text-forest-900 sm:text-4xl">{s.value}</div>
+              <div className="mt-1 text-sm text-forest-600">{s.label}</div>
             </div>
-            <div>
-              <h3 className="text-xl font-bold mb-2">Fully Insured</h3>
-              <p>
-                Comprehensive liability insurance for your peace of mind.
-              </p>
-            </div>
-            <div>
-              <h3 className="text-xl font-bold mb-2">Safety First</h3>
-              <p>
-                Certified arborists and strict safety protocols on every job.
-              </p>
-            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* Services                                                          */}
+      {/* ---------------------------------------------------------------- */}
+      <section className="bg-sand-50 py-20 sm:py-24">
+        <div className="wrap">
+          <div className="mx-auto max-w-2xl text-center">
+            <span className="eyebrow">What we do</span>
+            <h2 className="mt-3 font-display text-3xl font-semibold text-forest-900 sm:text-4xl">
+              Complete tree care, under one roof
+            </h2>
+            <p className="mt-4 text-forest-600">
+              From a single overhanging branch to clearing an entire site, our crews have the skills and kit to handle it safely.
+            </p>
+          </div>
+
+          <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {services.map((s) => (
+              <Link
+                key={s.slug}
+                href="/services"
+                className="group flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-forest-100 transition hover:-translate-y-1 hover:shadow-xl hover:shadow-forest-950/5"
+              >
+                <div className="relative h-44 overflow-hidden">
+                  <Image
+                    src={s.image}
+                    alt={s.imageAlt}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 33vw"
+                    className="object-cover transition duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-forest-950/40 to-transparent" />
+                  <span className="absolute left-4 top-4 grid h-11 w-11 place-items-center rounded-xl bg-white/95 text-forest-800 shadow-sm">
+                    <s.Icon className="h-6 w-6" />
+                  </span>
+                </div>
+                <div className="flex flex-1 flex-col p-6">
+                  <h3 className="font-display text-xl font-semibold text-forest-900">{s.title}</h3>
+                  <p className="mt-1 text-sm font-medium text-forest-500">{s.tagline}</p>
+                  <p className="mt-3 flex-1 text-sm text-forest-600">{s.description}</p>
+                  <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-forest-800">
+                    Learn more
+                    <ArrowRightIcon className="h-4 w-4 transition group-hover:translate-x-1" />
+                  </span>
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="py-12">
-        <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-8">Recent Projects</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="border rounded-lg overflow-hidden hover:shadow-lg transition">
+      {/* ---------------------------------------------------------------- */}
+      {/* Why choose — split with image                                     */}
+      {/* ---------------------------------------------------------------- */}
+      <section className="py-20 sm:py-24">
+        <div className="wrap grid items-center gap-12 lg:grid-cols-2">
+          <div className="relative">
+            <div className="relative aspect-[4/5] overflow-hidden rounded-3xl sm:aspect-[4/3] lg:aspect-[4/5]">
               <Image
-                src={treeImg}
-                alt="Tree felling project in Kempton Park"
-                className="w-full h-48 object-cover"
-                width={1200}
-                height={800}
+                src={photos.teamGrinding}
+                alt="A KV Tree team member at work in a suburban garden"
+                fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-cover"
               />
-              <div className="p-4">
-                <h3 className="text-lg font-bold mb-2">Tree Felling in Kempton Park</h3>
-                <p className="text-sm text-gray-600">Completed June 2026</p>
+            </div>
+            <div className="absolute -bottom-6 -right-2 hidden rounded-2xl bg-forest-900 px-6 py-5 text-white shadow-xl sm:block">
+              <div className="flex items-center gap-1 text-lime-accent">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <StarIcon key={i} className="h-4 w-4" />
+                ))}
+              </div>
+              <p className="mt-1 text-sm font-medium">Rated 5 stars by East Rand homeowners</p>
+            </div>
+          </div>
+
+          <div>
+            <span className="eyebrow">Why KV Tree</span>
+            <h2 className="mt-3 font-display text-3xl font-semibold text-forest-900 sm:text-4xl">
+              The team your neighbours already trust
+            </h2>
+            <p className="mt-4 text-forest-600">
+              We&apos;ve built our reputation over 20 years on doing careful, professional work and treating every property like our own.
+            </p>
+            <div className="mt-8 grid gap-6 sm:grid-cols-2">
+              {reasons.map((r) => (
+                <div key={r.title} className="flex gap-4">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-forest-50 text-forest-700">
+                    <r.Icon className="h-6 w-6" />
+                  </span>
+                  <div>
+                    <h3 className="font-semibold text-forest-900">{r.title}</h3>
+                    <p className="mt-1 text-sm text-forest-600">{r.body}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* Process                                                           */}
+      {/* ---------------------------------------------------------------- */}
+      <section className="bg-forest-950 py-20 text-white sm:py-24">
+        <div className="wrap">
+          <div className="mx-auto max-w-2xl text-center">
+            <span className="eyebrow text-lime-accent">How it works</span>
+            <h2 className="mt-3 font-display text-3xl font-semibold sm:text-4xl">From quote to clean-up in three steps</h2>
+          </div>
+          <div className="mt-14 grid gap-8 md:grid-cols-3">
+            {process.map((p) => (
+              <div key={p.step} className="relative rounded-2xl border border-white/10 bg-white/5 p-8">
+                <span className="font-display text-5xl font-semibold text-white/15">{p.step}</span>
+                <h3 className="mt-4 font-display text-xl font-semibold">{p.title}</h3>
+                <p className="mt-2 text-sm text-forest-200">{p.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* Recent work preview                                               */}
+      {/* ---------------------------------------------------------------- */}
+      <section className="py-20 sm:py-24">
+        <div className="wrap">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="max-w-xl">
+              <span className="eyebrow">Recent work</span>
+              <h2 className="mt-3 font-display text-3xl font-semibold text-forest-900 sm:text-4xl">
+                Real jobs, around the East Rand
+              </h2>
+            </div>
+            <Link
+              href="/portfolio"
+              className="inline-flex items-center gap-2 rounded-full border border-forest-200 px-5 py-2.5 text-sm font-semibold text-forest-800 transition hover:bg-forest-50"
+            >
+              View full portfolio <ArrowRightIcon className="h-4 w-4" />
+            </Link>
+          </div>
+
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              { img: photos.treeFelling, title: "Large tree felling", place: "Kempton Park" },
+              { img: photos.siteClearing, title: "Site clearing", place: "Benoni" },
+              { img: photos.emergency, title: "Storm emergency response", place: "Boksburg" },
+              { img: photos.stumpGrinding, title: "Stump grinding", place: "Edenvale" },
+              { img: photos.woodSales, title: "Seasoned firewood", place: "Year-round" },
+              { img: photos.pruning, title: "Crown pruning", place: "Modderfontein" },
+            ].map((p, i) => (
+              <div
+                key={p.title}
+                className={`group relative overflow-hidden rounded-2xl ${i === 0 ? "sm:col-span-2 lg:col-span-1" : ""}`}
+              >
+                <div className="relative aspect-[4/3]">
+                  <Image
+                    src={p.img}
+                    alt={`${p.title} in ${p.place}`}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 33vw"
+                    className="object-cover transition duration-500 group-hover:scale-105"
+                  />
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-forest-950/80 via-forest-950/10 to-transparent" />
+                <div className="absolute bottom-0 p-5 text-white">
+                  <h3 className="font-display text-lg font-semibold">{p.title}</h3>
+                  <p className="text-sm text-forest-100">{p.place}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* Testimonials                                                      */}
+      {/* ---------------------------------------------------------------- */}
+      <section className="bg-sand-50 py-20 sm:py-24">
+        <div className="wrap">
+          <div className="mx-auto max-w-2xl text-center">
+            <span className="eyebrow">Kind words</span>
+            <h2 className="mt-3 font-display text-3xl font-semibold text-forest-900 sm:text-4xl">
+              Homeowners across the East Rand
+            </h2>
+          </div>
+          <div className="mt-14 grid gap-6 md:grid-cols-3">
+            {testimonials.map((t) => (
+              <figure key={t.name} className="flex flex-col rounded-2xl bg-white p-7 shadow-sm ring-1 ring-forest-100">
+                <div className="flex gap-1 text-lime-accent">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <StarIcon key={i} className="h-4 w-4" />
+                  ))}
+                </div>
+                <blockquote className="mt-4 flex-1 text-forest-700">&ldquo;{t.quote}&rdquo;</blockquote>
+                <figcaption className="mt-5 border-t border-forest-100 pt-4">
+                  <span className="font-semibold text-forest-900">{t.name}</span>
+                  <span className="block text-sm text-forest-500">{t.place}</span>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* Final CTA                                                         */}
+      {/* ---------------------------------------------------------------- */}
+      <section className="py-20 sm:py-24">
+        <div className="wrap">
+          <div className="relative overflow-hidden rounded-3xl bg-forest-900 px-8 py-16 text-center sm:px-16">
+            <div className="absolute inset-0 opacity-20">
+              <Image src={photos.siteClearing} alt="" fill sizes="100vw" className="object-cover" />
+            </div>
+            <div className="relative mx-auto max-w-2xl text-white">
+              <h2 className="font-display text-3xl font-semibold sm:text-4xl">Ready to get that tree sorted?</h2>
+              <p className="mt-4 text-forest-100">
+                Tell us what you need and we&apos;ll come back with a free, no-obligation quote — usually within 24 hours.
+              </p>
+              <div className="mt-8 flex flex-wrap justify-center gap-3">
+                <Link
+                  href="/contact"
+                  className="inline-flex items-center gap-2 rounded-full bg-lime-accent px-7 py-3.5 font-semibold text-forest-950 transition hover:brightness-95"
+                >
+                  Request your free quote <ArrowRightIcon className="h-4 w-4" />
+                </Link>
+                <a
+                  href="tel:+27111234567"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/30 px-7 py-3.5 font-semibold text-white transition hover:bg-white/10"
+                >
+                  <PhoneIcon className="h-4 w-4" /> Call us now
+                </a>
               </div>
             </div>
-            <div className="border rounded-lg overflow-hidden hover:shadow-lg transition">
-              <Image
-                src={stumpImg}
-                alt="Stump grinding project in Edenvale"
-                className="w-full h-48 object-cover"
-                width={1200}
-                height={800}
-              />
-              <div className="p-4">
-                <h3 className="text-lg font-bold mb-2">Stump Grinding in Edenvale</h3>
-                <p className="text-sm text-gray-600">Completed May 2026</p>
-              </div>
-            </div>
           </div>
-        </div>
-      </section>
-
-      <section className="bg-green-900 text-white py-12">
-        <div className="container mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-6">Ready to Get Started?</h2>
-          <p className="mb-6">Contact us today for a free, no-obligation quote.</p>
-          <a
-            href="/contact"
-            className="bg-green-200 text-green-900 px-6 py-3 rounded-full hover:bg-green-300 transition"
-          >
-            Request Quote
-          </a>
         </div>
       </section>
     </>

@@ -1,161 +1,48 @@
-import treeFellingImg from "./portfolio-tree-felling-1.jpg.webp";
-import stumpGrindingImg from "./portfolio-stump-grinding-1.jpg.webp";
-import siteClearingImg from "./portfolio-site-clearing-1.jpg.webp";
-import emergencyImg from "./portfolio-emergency-response-1.jpg.webp";
-import pruningImg from "./portfolio-pruning-1.jpg.webp";
-import woodSalesImg from "./portfolio-wood-sales-1.jpg.webp";
+import type { Metadata } from "next";
+import Link from "next/link";
+import Gallery from "./gallery";
+import { ArrowRightIcon } from "@/components/icons";
+
+export const metadata: Metadata = {
+  title: "Portfolio",
+  description:
+    "A selection of recent KV Tree projects — tree felling, stump grinding, site clearing, pruning and emergency response across the East Rand.",
+};
 
 export default function Portfolio() {
   return (
     <>
-      <section className="py-12">
-        <div className="container mx-auto">
-          <h1 className="text-3xl font-bold text-center mb-8">
-            Our Portfolio
+      <section className="bg-forest-950 py-20 text-white sm:py-24">
+        <div className="wrap max-w-3xl">
+          <span className="eyebrow text-lime-accent">Our work</span>
+          <h1 className="mt-3 font-display text-4xl font-semibold leading-tight sm:text-5xl">
+            Recent projects across the East Rand
           </h1>
-          <p className="text-center text-gray-600 mb-8 max-w-2xl mx-auto">
-            A selection of our recent tree felling, stump grinding, and site
-            clearing projects across Kempton Park and surrounding areas.
+          <p className="mt-5 max-w-2xl text-lg text-forest-100">
+            A selection of our tree felling, stump grinding, site clearing and emergency work around
+            Kempton Park and the surrounding suburbs.
           </p>
+        </div>
+      </section>
 
-          {/* Filter buttons */}
-          <div className="mb-8 flex flex-wrap justify-center gap-4">
-            <button
-              className="px-4 py-2 bg-green-900 text-white rounded-full hover:bg-green-800 transition"
-            >
-              All
-            </button>
-            <button
-              className="px-4 py-2 bg-green-100 text-green-900 rounded-full hover:bg-green-200 transition"
-            >
-              Tree Felling
-            </button>
-            <button
-              className="px-4 py-2 bg-green-100 text-green-900 rounded-full hover:bg-green-200 transition"
-            >
-              Stump Grinding
-            </button>
-            <button
-              className="px-4 py-2 bg-green-100 text-green-900 rounded-full hover:bg-green-200 transition"
-            >
-              Site Clearing
-            </button>
-          </div>
+      <section className="py-20 sm:py-24">
+        <div className="wrap">
+          <Gallery />
+        </div>
+      </section>
 
-          {/* Projects grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Project 1 */}
-            <div className="border rounded-lg overflow-hidden hover:shadow-lg transition">
-              <img
-                src={treeFellingImg.src}
-                alt="Large tree felling in Kempton Park"
-                className="w-full h-48 object-cover"
-              />
-              <div className="p-4">
-                <h3 className="text-lg font-bold mb-2">Large Tree Felling</h3>
-                <p className="text-sm text-gray-600 mb-2">
-                  Kempton Park • June 2026
-                </p>
-                <p className="text-gray-700">
-                  Safe removal of a 20-meter blue gum tree near residential
-                  property.
-                </p>
-              </div>
-            </div>
-
-            {/* Project 2 */}
-            <div className="border rounded-lg overflow-hidden hover:shadow-lg transition">
-              <img
-                src={stumpGrindingImg.src}
-                alt="Stump grinding in Edenvale"
-                className="w-full h-48 object-cover"
-              />
-              <div className="p-4">
-                <h3 className="text-lg font-bold mb-2">Stump Grinding</h3>
-                <p className="text-sm text-gray-600 mb-2">
-                  Edenvale • May 2026
-                </p>
-                <p className="text-gray-700">
-                  Complete stump removal and site preparation for new lawn
-                  installation.
-                </p>
-              </div>
-            </div>
-
-            {/* Project 3 */}
-            <div className="border rounded-lg overflow-hidden hover:shadow-lg transition">
-              <img
-                src={siteClearingImg.src}
-                alt="Site clearing for development"
-                className="w-full h-48 object-cover"
-              />
-              <div className="p-4">
-                <h3 className="text-lg font-bold mb-2">Site Clearing</h3>
-                <p className="text-sm text-gray-600 mb-2">
-                  Benoni • April 2026
-                </p>
-                <p className="text-gray-700">
-                  Clearing of 1.5 hectares for new residential development.
-                </p>
-              </div>
-            </div>
-
-            {/* Project 4 */}
-            <div className="border rounded-lg overflow-hidden hover:shadow-lg transition">
-              <img
-                src={emergencyImg.src}
-                alt="Emergency storm response"
-                className="w-full h-48 object-cover"
-              />
-              <div className="p-4">
-                <h3 className="text-lg font-bold mb-2">Emergency Response</h3>
-                <p className="text-sm text-gray-600 mb-2">
-                  Boksburg • March 2026
-                </p>
-                <p className="text-gray-700">
-                  24/7 storm damage response - removed hazardous trees after
-                  severe winds.
-                </p>
-              </div>
-            </div>
-
-            {/* Project 5 */}
-            <div className="border rounded-lg overflow-hidden hover:shadow-lg transition">
-              <img
-                src={pruningImg.src}
-                alt="Tree pruning in Modderfontein"
-                className="w-full h-48 object-cover"
-              />
-              <div className="p-4">
-                <h3 className="text-lg font-bold mb-2">Pruning & Trimming</h3>
-                <p className="text-sm text-gray-600 mb-2">
-                  Modderfontein • February 2026
-                </p>
-                <p className="text-gray-700">
-                  Expert pruning of mature oak trees to enhance health and
-                  appearance.
-                </p>
-              </div>
-            </div>
-
-            {/* Project 6 */}
-            <div className="border rounded-lg overflow-hidden hover:shadow-lg transition">
-              <img
-                src={woodSalesImg.src}
-                alt="Wood sales"
-                className="w-full h-48 object-cover"
-              />
-              <div className="p-4">
-                <h3 className="text-lg font-bold mb-2">Wood Sales</h3>
-                <p className="text-sm text-gray-600 mb-2">
-                  Ongoing • Year-round
-                </p>
-                <p className="text-gray-700">
-                  Quality firewood and timber available for purchase.
-                </p>
-              </div>
-            </div>
-          </div>
+      <section className="bg-sand-50 py-16">
+        <div className="wrap flex flex-col items-center gap-5 text-center">
+          <h2 className="font-display text-3xl font-semibold text-forest-900">Your project could be next</h2>
+          <p className="max-w-xl text-forest-600">
+            Tell us what you need and we&apos;ll provide a free, no-obligation quote — usually within 24 hours.
+          </p>
+          <Link
+            href="/contact"
+            className="inline-flex items-center gap-2 rounded-full bg-forest-900 px-7 py-3.5 font-semibold text-white transition hover:bg-forest-800"
+          >
+            Request a free quote <ArrowRightIcon className="h-4 w-4" />
+          </Link>
         </div>
       </section>
     </>

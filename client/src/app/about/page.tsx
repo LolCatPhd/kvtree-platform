@@ -1,123 +1,163 @@
+import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
+import { photos } from "@/lib/photos";
+import { ShieldIcon, AwardIcon, LeafIcon, ArrowRightIcon } from "@/components/icons";
+
+export const metadata: Metadata = {
+  title: "About Us",
+  description:
+    "KV Tree has served Kempton Park and the greater East Rand for over 20 years with certified, fully-insured tree care.",
+};
+
+const stats = [
+  { value: "20+", label: "Years of experience" },
+  { value: "1,000+", label: "Projects completed" },
+  { value: "100%", label: "Satisfaction guarantee" },
+  { value: "Fully", label: "Insured & certified" },
+];
+
+const values = [
+  {
+    Icon: ShieldIcon,
+    title: "Safety first, always",
+    body: "We work to the highest safety standards in the industry — trained crews, the right equipment, and a careful plan for every job.",
+  },
+  {
+    Icon: AwardIcon,
+    title: "Certified experts",
+    body: "Our arborists are certified by recognised industry bodies and keep learning to stay current with best practice.",
+  },
+  {
+    Icon: LeafIcon,
+    title: "Environmental care",
+    body: "We recycle wood waste into mulch and firewood, and recommend replanting whenever a tree has to come down.",
+  },
+];
+
+const team = [
+  { name: "Kelvin van der Merwe", role: "Founder & Chief Arborist", photo: photos.founder, initials: "KM" },
+  { name: "Thandiwe Mokoena", role: "Operations Manager", initials: "TM" },
+  { name: "Jaco Botha", role: "Lead Arborist", initials: "JB" },
+];
+
 export default function About() {
   return (
     <>
-      <section className="py-12">
-        <div className="container mx-auto">
-          <h1 className="text-3xl font-bold text-center mb-8">
-            About KV Tree
-          </h1>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div>
-              <h2 className="text-2xl font-bold mb-4">Our Story</h2>
+      {/* Hero / story */}
+      <section className="py-20 sm:py-24">
+        <div className="wrap grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
+          <div>
+            <span className="eyebrow">Our story</span>
+            <h1 className="mt-3 font-display text-4xl font-semibold leading-tight text-forest-900 sm:text-5xl">
+              A family name the East Rand has trusted for 20 years
+            </h1>
+            <div className="mt-6 space-y-4 text-forest-600">
               <p>
-                KV Tree has been serving the Kempton Park and greater East Rand
-                community for over 20 years. What started as a small, family-
-                operated business has grown into a trusted name in tree care,
-                known for our commitment to safety, professionalism, and
-                environmental stewardship.
+                KV Tree has served the Kempton Park and greater East Rand community for over two decades.
+                What started as a small, family-run business has grown into a trusted name in tree care —
+                known for our commitment to safety, professionalism and environmental stewardship.
               </p>
               <p>
-                Our founder, Kelvin van der Merwe, began with a passion for
-                arboriculture and a dedication to providing honest, reliable
-                service. Today, we continue that legacy with a team of certified
+                Our founder, Kelvin van der Merwe, began with a passion for arboriculture and a dedication
+                to honest, reliable service. Today we carry that legacy forward with a team of certified
                 arborists and skilled technicians who share the same values.
               </p>
             </div>
-            <div className="space-y-4">
-              <div className="border rounded-lg p-4">
-                <h3 className="font-bold mb-2">20+</h3>
-                <p className="text-sm text-gray-600">
-                  Years of Experience
-                </p>
-              </div>
-              <div className="border rounded-lg p-4">
-                <h3 className="font-bold mb-2">1,000+</h3>
-                <p className="text-sm text-gray-600">
-                  Projects Completed
-                </p>
-              </div>
-              <div className="border rounded-lg p-4">
-                <h3 className="font-bold mb-2">100%</h3>
-                <p className="text-sm text-gray-600">
-                  Customer Satisfaction Guarantee
-                </p>
-              </div>
-              <div className="border rounded-lg p-4">
-                <h3 className="font-bold mb-2">Fully</h3>
-                <p className="text-sm text-gray-600">
-                  Insured & Certified
-                </p>
-              </div>
+            <Link
+              href="/contact"
+              className="mt-8 inline-flex items-center gap-2 rounded-full bg-forest-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-forest-800"
+            >
+              Work with us <ArrowRightIcon className="h-4 w-4" />
+            </Link>
+          </div>
+
+          <div className="relative">
+            <div className="relative aspect-[4/5] overflow-hidden rounded-3xl shadow-sm ring-1 ring-forest-100">
+              <Image
+                src={photos.founder}
+                alt="Kelvin van der Merwe, founder of KV Tree, in a branded polo shirt"
+                fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-cover"
+              />
+            </div>
+            <div className="absolute -bottom-6 left-6 rounded-2xl bg-forest-900 px-6 py-4 text-white shadow-xl">
+              <p className="font-display text-lg font-semibold">Kelvin van der Merwe</p>
+              <p className="text-sm text-forest-200">Founder &amp; Chief Arborist</p>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="bg-green-50 py-12">
-        <div className="container mx-auto">
-          <h2 className="text-2xl font-bold text-center mb-8">
-            Our Commitment to Safety & Excellence
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-            <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">
-              <h3 className="text-xl font-bold mb-2">Safety First</h3>
-              <p>
-                We adhere to the highest safety standards in the industry. Our
-                team is trained in the latest safety protocols and uses
-                state-of-the-art equipment to ensure every job is completed
-                without incident.
-              </p>
+      {/* Stats */}
+      <section className="bg-forest-950 py-14 text-white">
+        <div className="wrap grid grid-cols-2 gap-y-8 md:grid-cols-4">
+          {stats.map((s) => (
+            <div key={s.label} className="text-center">
+              <div className="font-display text-3xl font-semibold sm:text-4xl">{s.value}</div>
+              <div className="mt-1 text-sm text-forest-200">{s.label}</div>
             </div>
-            <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">
-              <h3 className="text-xl font-bold mb-2">Certified Experts</h3>
-              <p>
-                Our arborists are certified by recognized industry bodies and
-                participate in ongoing education to stay current with best
-                practices in tree care.
-              </p>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition">
-              <h3 className="text-xl font-bold mb-2">Environmental Care</h3>
-              <p>
-                We believe in responsible tree care that considers the health
-                of the entire ecosystem. We recycle wood waste and recommend
-                planting new trees to replace those we remove when necessary.
-              </p>
-            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Values */}
+      <section className="bg-sand-50 py-20 sm:py-24">
+        <div className="wrap">
+          <div className="mx-auto max-w-2xl text-center">
+            <span className="eyebrow">What we stand for</span>
+            <h2 className="mt-3 font-display text-3xl font-semibold text-forest-900 sm:text-4xl">
+              Our commitment to safety &amp; excellence
+            </h2>
+          </div>
+          <div className="mt-14 grid gap-6 md:grid-cols-3">
+            {values.map((v) => (
+              <div key={v.title} className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-forest-100">
+                <span className="grid h-12 w-12 place-items-center rounded-xl bg-forest-50 text-forest-700">
+                  <v.Icon className="h-7 w-7" />
+                </span>
+                <h3 className="mt-5 font-display text-xl font-semibold text-forest-900">{v.title}</h3>
+                <p className="mt-2 text-sm text-forest-600">{v.body}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="py-12">
-        <div className="container mx-auto">
-          <h2 className="text-2xl font-bold text-center mb-8">
-            Meet Our Team
-          </h2>
-          <p className="text-center text-gray-600 mb-8">
-            The skilled professionals who make KV Tree possible.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="border rounded-lg p-6 text-center hover:shadow-lg transition">
-              <div className="w-32 h-32 rounded-full mx-auto mb-4 bg-green-900 text-white flex items-center justify-center text-3xl font-bold">
-                KM
+      {/* Team */}
+      <section className="py-20 sm:py-24">
+        <div className="wrap">
+          <div className="mx-auto max-w-2xl text-center">
+            <span className="eyebrow">Meet the team</span>
+            <h2 className="mt-3 font-display text-3xl font-semibold text-forest-900 sm:text-4xl">
+              The people behind every job
+            </h2>
+          </div>
+          <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {team.map((m) => (
+              <div key={m.name} className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-forest-100">
+                <div className="relative aspect-[4/3] bg-forest-900">
+                  {m.photo ? (
+                    <Image
+                      src={m.photo}
+                      alt={m.name}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 33vw"
+                      className="object-cover object-top"
+                    />
+                  ) : (
+                    <div className="grid h-full place-items-center text-4xl font-semibold text-lime-accent">
+                      {m.initials}
+                    </div>
+                  )}
+                </div>
+                <div className="p-6 text-center">
+                  <h3 className="font-display text-lg font-semibold text-forest-900">{m.name}</h3>
+                  <p className="text-sm text-forest-500">{m.role}</p>
+                </div>
               </div>
-              <h3 className="text-xl font-bold mb-2">Kelvin van der Merwe</h3>
-              <p className="text-gray-600">Founder & Chief Arborist</p>
-            </div>
-            <div className="border rounded-lg p-6 text-center hover:shadow-lg transition">
-              <div className="w-32 h-32 rounded-full mx-auto mb-4 bg-green-900 text-white flex items-center justify-center text-3xl font-bold">
-                TM
-              </div>
-              <h3 className="text-xl font-bold mb-2">Thandiwe Mokoena</h3>
-              <p className="text-gray-600">Operations Manager</p>
-            </div>
-            <div className="border rounded-lg p-6 text-center hover:shadow-lg transition">
-              <div className="w-32 h-32 rounded-full mx-auto mb-4 bg-green-900 text-white flex items-center justify-center text-3xl font-bold">
-                JB
-              </div>
-              <h3 className="text-xl font-bold mb-2">Jaco Botha</h3>
-              <p className="text-gray-600">Lead Arborist</p>
-            </div>
+            ))}
           </div>
         </div>
       </section>
