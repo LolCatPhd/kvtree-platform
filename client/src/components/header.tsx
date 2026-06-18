@@ -13,7 +13,8 @@ const NAV = [
   { href: "/contact", label: "Contact" },
 ];
 
-const PHONE = "+27 11 123 4567";
+// Owner contact (Pieter Bekker)
+const PHONE = "+27 83 302 2877";
 
 export default function Header() {
   const { user, logout } = useAuth();
