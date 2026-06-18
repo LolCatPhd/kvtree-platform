@@ -39,6 +39,7 @@ export default function AdminPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [tab, setTab] = useState<'pipeline' | 'map'>('pipeline');
   const [selected, setSelected] = useState<Lead | null>(null);
+  const [showAddWorker, setShowAddWorker] = useState(false);
 
   const load = useCallback(async () => {
     const [meta, l, s] = await Promise.all([
@@ -100,6 +101,14 @@ export default function AdminPage() {
             >
               Map
             </button>
+            {user.role === 'admin' && (
+              <button
+                onClick={() => setShowAddWorker(true)}
+                className="px-4 py-2 rounded-full text-sm bg-white border"
+              >
+                + Worker
+              </button>
+            )}
           </div>
         </div>
 
@@ -170,6 +179,50 @@ export default function AdminPage() {
           onChanged={() => { load(); setSelected(null); }}
         />
       )}
+
+      {showAddWorker && (
+        <AddWorker onClose={() => setShowAddWorker(false)} onCreated={() => { load(); setShowAddWorker(false); }} />
+      )}
+    </div>
+  );
+}
+
+function AddWorker({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [form, setForm] = useState({ name: '', email: '', password: '', phone: '' });
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const up = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await api('/api/users', { method: 'POST', body: { ...form, role: 'worker' } });
+      onCreated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
+      <form onClick={(e) => e.stopPropagation()} onSubmit={submit} className="bg-white rounded-2xl p-6 w-full max-w-sm">
+        <h2 className="text-lg font-bold text-green-900 mb-4">Add field worker</h2>
+        {error && <div className="mb-3 text-sm rounded-lg bg-red-50 text-red-700 px-3 py-2">{error}</div>}
+        <input className="w-full border rounded-lg px-3 py-2 mb-2 text-sm" placeholder="Name" value={form.name} onChange={(e) => up('name', e.target.value)} required />
+        <input type="email" className="w-full border rounded-lg px-3 py-2 mb-2 text-sm" placeholder="Email" value={form.email} onChange={(e) => up('email', e.target.value)} required />
+        <input className="w-full border rounded-lg px-3 py-2 mb-2 text-sm" placeholder="Phone" value={form.phone} onChange={(e) => up('phone', e.target.value)} />
+        <input type="password" className="w-full border rounded-lg px-3 py-2 mb-4 text-sm" placeholder="Temporary password" value={form.password} onChange={(e) => up('password', e.target.value)} required />
+        <div className="flex gap-2">
+          <button type="button" onClick={onClose} className="flex-1 border rounded-lg py-2 text-sm">Cancel</button>
+          <button type="submit" disabled={busy} className="flex-1 bg-green-900 text-white rounded-lg py-2 text-sm disabled:opacity-60">
+            {busy ? 'Creating…' : 'Create'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
