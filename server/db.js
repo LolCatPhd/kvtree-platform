@@ -91,6 +91,8 @@ async function initDb() {
       status          TEXT        NOT NULL DEFAULT 'Scheduled',
       notes           TEXT,
       photos          JSONB       NOT NULL DEFAULT '[]'::jsonb,
+      calendar_event_id TEXT,
+      calendar_link     TEXT,
       created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
       updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
     );
@@ -130,8 +132,10 @@ async function initDb() {
     );
   `);
 
-  // Additive migration for databases created before these columns existed.
+  // Additive migrations for databases created before these columns existed.
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS marketing_opt_in BOOLEAN NOT NULL DEFAULT false;`);
+  await pool.query(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS calendar_event_id TEXT;`);
+  await pool.query(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS calendar_link TEXT;`);
 }
 
 module.exports = { pool, initDb, LEAD_STATUSES };

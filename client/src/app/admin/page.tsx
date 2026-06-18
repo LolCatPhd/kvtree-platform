@@ -293,6 +293,23 @@ function LeadPanel({
     }
   };
 
+  const bookJob = async () => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const job = await api<{ calendar_link: string | null }>('/api/jobs', {
+        method: 'POST',
+        body: { leadId: lead.id, assignedWorkerId: worker ? Number(worker) : null, scheduledDate },
+      });
+      setMsg(job.calendar_link ? 'Job scheduled and added to Google Calendar.' : 'Job scheduled.');
+      onChanged();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/40 flex justify-end z-50" onClick={onClose}>
       <div
@@ -377,7 +394,7 @@ function LeadPanel({
             <input type="datetime-local" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="border rounded-lg px-3 py-2 flex-1 text-sm" />
             <button
               disabled={busy || !scheduledDate}
-              onClick={() => run(() => api('/api/jobs', { method: 'POST', body: { leadId: lead.id, assignedWorkerId: worker ? Number(worker) : null, scheduledDate } }).then(() => {}), 'Job scheduled')}
+              onClick={bookJob}
               className="bg-green-900 text-white px-3 rounded-lg text-sm"
             >
               Book

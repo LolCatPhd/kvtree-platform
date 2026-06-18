@@ -40,6 +40,9 @@ Every stage is a column on the admin Kanban board and a coloured pin on the map.
   webhook that reconciles payment status. Env-flagged.
 - **Marketing campaigns** — segment opted-in recipients (all / clients /
   past clients) and send email blasts; **POPIA**-aware consent tracking.
+- **Google Calendar sync** — scheduling a job creates a calendar event
+  (updated on reschedule, removed on completion) via a service account.
+  Env-flagged.
 - **Notifications** — email (nodemailer/SMTP) + WhatsApp (Twilio), env-flagged;
   they log instead of send until credentials are provided.
 - **Geocoding** — addresses geocoded on creation (Nominatim by default).
@@ -77,7 +80,7 @@ See `server/.env.example` for the full list of environment variables.
 
 ## Roadmap (not yet built)
 
-Calendar sync, true 3D Mapbox map, AI photo-based quote estimates, and an
-in-app two-way WhatsApp inbox. Uploaded files currently use the API's local
-disk — move to S3/Supabase Storage for production (Railway disk is ephemeral).
+True 3D Mapbox map, AI photo-based quote estimates, and an in-app two-way
+WhatsApp inbox. Uploaded files currently use the API's local disk — move to
+S3/Supabase Storage for production (Railway disk is ephemeral).
 ```

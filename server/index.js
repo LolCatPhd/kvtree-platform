@@ -12,6 +12,7 @@ const { sendWhatsApp } = require('./whatsapp');
 const { generateQuotePdf, generateInvoicePdf } = require('./pdf');
 const { geocode, distanceKm } = require('./geocode');
 const { paymentsEnabled, buildPayment, verifySignature, validateWithPayfast } = require('./payments');
+const calendar = require('./calendar');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -396,6 +397,23 @@ app.put('/api/quotes/:id', authRequired, asyncHandler(async (req, res) => {
 // ---------------------------------------------------------------------------
 // Jobs
 // ---------------------------------------------------------------------------
+// Assemble the calendar event payload for a job from its lead + worker.
+async function calendarOptsForJob(job) {
+  const leadRes = job.lead_id ? await pool.query('SELECT * FROM leads WHERE id = $1', [job.lead_id]) : { rows: [] };
+  const lead = leadRes.rows[0];
+  const workerRes = job.assigned_worker_id
+    ? await pool.query('SELECT email FROM users WHERE id = $1', [job.assigned_worker_id])
+    : { rows: [] };
+  return {
+    summary: `KV Tree — ${lead?.service || 'Job'} for ${lead?.name || 'client'}`,
+    description: `${lead?.description || ''}\n\nJob #${job.id}. ${job.notes || ''}`.trim(),
+    location: lead?.address || undefined,
+    startISO: job.scheduled_date,
+    durationHours: 2,
+    attendees: [lead?.email, workerRes.rows[0]?.email],
+  };
+}
+
 app.post('/api/jobs', authRequired, requireRole('admin', 'worker'), asyncHandler(async (req, res) => {
   const { quoteId, leadId, assignedWorkerId, scheduledDate, notes, photos } = req.body;
   const { rows } = await pool.query(
@@ -403,8 +421,20 @@ app.post('/api/jobs', authRequired, requireRole('admin', 'worker'), asyncHandler
      VALUES ($1, $2, $3, $4, $5, $6::jsonb) RETURNING *`,
     [parseId(quoteId), parseId(leadId), assignedWorkerId ?? null, scheduledDate ?? null, notes ?? null, JSON.stringify(photos ?? [])]
   );
+  let job = rows[0];
   if (leadId) await pool.query("UPDATE leads SET status = 'Booked', updated_at = now() WHERE id = $1", [parseId(leadId)]);
-  res.status(201).json(rows[0]);
+
+  // Create a Google Calendar event if scheduling info is present.
+  if (job.scheduled_date) {
+    const event = await calendar.createEvent(await calendarOptsForJob(job));
+    if (event) {
+      job = (await pool.query(
+        'UPDATE jobs SET calendar_event_id = $2, calendar_link = $3 WHERE id = $1 RETURNING *',
+        [job.id, event.id, event.link]
+      )).rows[0];
+    }
+  }
+  res.status(201).json(job);
 }));
 
 app.get('/api/jobs', authRequired, requireRole('admin', 'worker'), asyncHandler(async (req, res) => {
@@ -429,10 +459,26 @@ app.put('/api/jobs/:id', authRequired, requireRole('admin', 'worker'), asyncHand
     [id, req.body.assignedWorkerId ?? null, req.body.scheduledDate ?? null, req.body.status ?? null, req.body.notes ?? null, req.body.photos != null ? JSON.stringify(req.body.photos) : null]
   );
   if (!rows.length) return res.status(404).json({ error: 'Job not found' });
+  let job = rows[0];
   // Mirror completion onto the lead pipeline.
-  const job = rows[0];
   if (job.status === 'Completed' && job.lead_id) {
     await pool.query("UPDATE leads SET status = 'Completed', updated_at = now() WHERE id = $1", [job.lead_id]);
+  }
+  // Keep the calendar in sync: cancel on completion, otherwise create/update.
+  if (job.status === 'Completed' && job.calendar_event_id) {
+    await calendar.deleteEvent(job.calendar_event_id);
+    job = (await pool.query('UPDATE jobs SET calendar_event_id = NULL, calendar_link = NULL WHERE id = $1 RETURNING *', [job.id])).rows[0];
+  } else if (job.scheduled_date) {
+    const opts = await calendarOptsForJob(job);
+    const event = job.calendar_event_id
+      ? await calendar.updateEvent(job.calendar_event_id, opts)
+      : await calendar.createEvent(opts);
+    if (event) {
+      job = (await pool.query(
+        'UPDATE jobs SET calendar_event_id = $2, calendar_link = $3 WHERE id = $1 RETURNING *',
+        [job.id, event.id, event.link]
+      )).rows[0];
+    }
   }
   res.json(job);
 }));
