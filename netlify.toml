@@ -6,7 +6,9 @@
 [build.environment]
   NODE_VERSION = "22"
   NEXT_TELEMETRY_DISABLED = "1"
-  NEXT_PRIVATE_TURBOPACK = "0"
+  # Build runs `next build --webpack` (see client/package.json). Next 16 defaults
+  # to Turbopack, whose production chunks aren't traced into Netlify's serverless
+  # functions and fail at runtime with ChunkLoadError. --webpack is the real fix.
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
