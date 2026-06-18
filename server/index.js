@@ -13,6 +13,7 @@ const { generateQuotePdf, generateInvoicePdf } = require('./pdf');
 const { geocode, distanceKm } = require('./geocode');
 const { paymentsEnabled, buildPayment, verifySignature, validateWithPayfast } = require('./payments');
 const calendar = require('./calendar');
+const storage = require('./storage');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -35,20 +36,19 @@ app.use(
 
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 fs.mkdirSync(path.join(UPLOAD_DIR, 'photos'), { recursive: true });
-app.use('/uploads', express.static(UPLOAD_DIR));
+// Serve local files only when S3 isn't handling storage.
+if (!storage.storageEnabled) {
+  app.use('/uploads', express.static(UPLOAD_DIR));
+}
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, path.join(UPLOAD_DIR, 'photos')),
-  filename: (req, file, cb) => {
-    const safe = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e6)}-${safe}`);
-  },
-});
+// Buffer uploads in memory, then hand them to the storage layer (S3 or disk).
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024, files: 10 }, // 10MB each, max 10
   fileFilter: (req, file, cb) => cb(null, /^image\//.test(file.mimetype)),
 });
+
+const safeName = (name) => name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
 
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me';
@@ -85,10 +85,15 @@ app.get('/api/meta', (req, res) => res.json({ leadStatuses: LEAD_STATUSES }));
 // ---------------------------------------------------------------------------
 // File uploads — returns public URLs to attach to a lead/job
 // ---------------------------------------------------------------------------
-app.post('/api/uploads', upload.array('photos', 10), (req, res) => {
-  const urls = (req.files || []).map((f) => `${PUBLIC_URL}/uploads/photos/${f.filename}`);
+app.post('/api/uploads', upload.array('photos', 10), asyncHandler(async (req, res) => {
+  const urls = await Promise.all(
+    (req.files || []).map((f) => {
+      const key = `photos/${Date.now()}-${Math.round(Math.random() * 1e6)}-${safeName(f.originalname)}`;
+      return storage.save(f.buffer, key, f.mimetype);
+    })
+  );
   res.status(201).json({ urls });
-});
+}));
 
 // ---------------------------------------------------------------------------
 // Auth
@@ -307,20 +312,20 @@ app.post('/api/quotes', authRequired, requireRole('admin', 'worker'), asyncHandl
   );
   let quote = inserted.rows[0];
 
-  // Generate the PDF and persist its path.
-  const pdfPath = await generateQuotePdf({ quote, lead });
-  const updated = await pool.query('UPDATE quotes SET pdf_path = $2 WHERE id = $1 RETURNING *', [quote.id, pdfPath]);
+  // Generate the PDF, publish it to storage, and persist its URL.
+  const { localPath, key } = await generateQuotePdf({ quote, lead });
+  const pdfUrl = await storage.publish(localPath, key, 'application/pdf');
+  const updated = await pool.query('UPDATE quotes SET pdf_path = $2 WHERE id = $1 RETURNING *', [quote.id, pdfUrl]);
   quote = updated.rows[0];
 
   // Advance the lead and notify the client with the quote link.
   await pool.query("UPDATE leads SET status = 'Quoted', updated_at = now() WHERE id = $1", [lid]);
-  const link = `${PUBLIC_URL}${pdfPath}`;
   await notify({
     email: lead.email,
     phone: lead.phone,
     subject: `Your KV Tree quotation #${quote.id}`,
-    message: `Hi ${lead.name || 'there'}, your quotation for "${lead.service}" is ready: R ${Number(price || 0).toFixed(2)}. View it here: ${link}`,
-    attachments: [{ filename: `quote-${quote.id}.pdf`, path: path.join(__dirname, pdfPath) }],
+    message: `Hi ${lead.name || 'there'}, your quotation for "${lead.service}" is ready: R ${Number(price || 0).toFixed(2)}. View it here: ${pdfUrl}`,
+    attachments: [{ filename: `quote-${quote.id}.pdf`, path: localPath }],
   });
 
   res.status(201).json(quote);
@@ -503,8 +508,9 @@ app.post('/api/invoices', authRequired, requireRole('admin', 'worker'), asyncHan
   );
   let invoice = inserted.rows[0];
 
-  const pdfPath = await generateInvoicePdf({ invoice, lead });
-  invoice = (await pool.query('UPDATE invoices SET pdf_path = $2 WHERE id = $1 RETURNING *', [invoice.id, pdfPath])).rows[0];
+  const { localPath, key } = await generateInvoicePdf({ invoice, lead });
+  const pdfUrl = await storage.publish(localPath, key, 'application/pdf');
+  invoice = (await pool.query('UPDATE invoices SET pdf_path = $2 WHERE id = $1 RETURNING *', [invoice.id, pdfUrl])).rows[0];
   await pool.query("UPDATE leads SET status = 'Invoiced', updated_at = now() WHERE id = $1", [lid]);
 
   await notify({
@@ -512,7 +518,7 @@ app.post('/api/invoices', authRequired, requireRole('admin', 'worker'), asyncHan
     phone: lead.phone,
     subject: `Invoice #${invoice.id} from KV Tree`,
     message: `Hi ${lead.name || 'there'}, your invoice for "${lead.service}" of R ${Number(amount).toFixed(2)} is ready. Log in to your account to view and pay it online.`,
-    attachments: [{ filename: `invoice-${invoice.id}.pdf`, path: path.join(__dirname, pdfPath) }],
+    attachments: [{ filename: `invoice-${invoice.id}.pdf`, path: localPath }],
   });
 
   res.status(201).json(invoice);

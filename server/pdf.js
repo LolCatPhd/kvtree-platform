@@ -10,11 +10,12 @@ const currency = (n) =>
 
 /**
  * Generate a quotation PDF and write it to uploads/quotes/.
- * Returns the relative public path, e.g. "/uploads/quotes/quote-12.pdf".
+ * Resolves to { localPath, key } — localPath for attachments, key for storage.
  */
 function generateQuotePdf({ quote, lead }) {
   return new Promise((resolve, reject) => {
     const filename = `quote-${quote.id}.pdf`;
+    const key = `quotes/${filename}`;
     const filepath = path.join(QUOTES_DIR, filename);
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     const stream = fs.createWriteStream(filepath);
@@ -61,7 +62,7 @@ function generateQuotePdf({ quote, lead }) {
     );
 
     doc.end();
-    stream.on('finish', () => resolve(`/uploads/quotes/${filename}`));
+    stream.on('finish', () => resolve({ localPath: filepath, key }));
     stream.on('error', reject);
   });
 }
@@ -70,11 +71,12 @@ const INVOICES_DIR = path.join(__dirname, 'uploads', 'invoices');
 fs.mkdirSync(INVOICES_DIR, { recursive: true });
 
 /**
- * Generate an invoice PDF. Returns the relative public path.
+ * Generate an invoice PDF. Resolves to { localPath, key }.
  */
 function generateInvoicePdf({ invoice, lead }) {
   return new Promise((resolve, reject) => {
     const filename = `invoice-${invoice.id}.pdf`;
+    const key = `invoices/${filename}`;
     const filepath = path.join(INVOICES_DIR, filename);
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     const stream = fs.createWriteStream(filepath);
@@ -112,7 +114,7 @@ function generateInvoicePdf({ invoice, lead }) {
     );
 
     doc.end();
-    stream.on('finish', () => resolve(`/uploads/invoices/${filename}`));
+    stream.on('finish', () => resolve({ localPath: filepath, key }));
     stream.on('error', reject);
   });
 }

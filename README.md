@@ -43,6 +43,9 @@ Every stage is a column on the admin Kanban board and a coloured pin on the map.
 - **Google Calendar sync** — scheduling a job creates a calendar event
   (updated on reschedule, removed on completion) via a service account.
   Env-flagged.
+- **Pluggable file storage** — photos and PDFs go to any S3-compatible
+  bucket (AWS S3, Supabase, R2, Spaces) when configured, with a local-disk
+  fallback for development. Env-flagged.
 - **Notifications** — email (nodemailer/SMTP) + WhatsApp (Twilio), env-flagged;
   they log instead of send until credentials are provided.
 - **Geocoding** — addresses geocoded on creation (Nominatim by default).
@@ -80,7 +83,5 @@ See `server/.env.example` for the full list of environment variables.
 
 ## Roadmap (not yet built)
 
-True 3D Mapbox map, AI photo-based quote estimates, and an in-app two-way
-WhatsApp inbox. Uploaded files currently use the API's local disk — move to
-S3/Supabase Storage for production (Railway disk is ephemeral).
+True 3D Mapbox map and an in-app two-way WhatsApp inbox.
 ```
