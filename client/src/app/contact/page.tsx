@@ -1,5 +1,5 @@
 'use client';
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api, uploadPhotos } from '@/lib/api';
 import {
@@ -45,7 +45,21 @@ export default function Contact() {
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []) as File[];
     setUploadedPhotos((prev) => [...prev, ...files]);
+    // Allow re-selecting the same file (e.g. retaking a photo) after removal.
+    e.target.value = "";
   };
+
+  const removePhoto = (index: number) => {
+    setUploadedPhotos((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Local object-URL previews for the selected photos, cleaned up on change.
+  const [previews, setPreviews] = useState<string[]>([]);
+  useEffect(() => {
+    const urls = uploadedPhotos.map((f) => URL.createObjectURL(f));
+    setPreviews(urls);
+    return () => urls.forEach((u) => URL.revokeObjectURL(u));
+  }, [uploadedPhotos]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -179,7 +193,7 @@ export default function Contact() {
               </div>
 
               <div>
-                <label htmlFor="photos" className="mb-1.5 block text-sm font-medium text-forest-800">Upload photos (optional)</label>
+                <label htmlFor="photos" className="mb-1.5 block text-sm font-medium text-forest-800">Photos of the tree (optional)</label>
                 <input
                   type="file"
                   id="photos"
@@ -188,10 +202,26 @@ export default function Contact() {
                   onChange={handlePhotoUpload}
                   className="w-full rounded-xl border border-forest-200 px-4 py-2.5 text-sm text-forest-600 file:mr-4 file:rounded-full file:border-0 file:bg-forest-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-forest-800 hover:file:bg-forest-200"
                 />
-                {uploadedPhotos.length > 0 && (
-                  <p className="mt-2 text-sm text-forest-600">
-                    {uploadedPhotos.length} photo{uploadedPhotos.length !== 1 ? "s" : ""} selected
-                  </p>
+                <p className="mt-1.5 text-xs text-forest-400">
+                  On your phone you can snap a photo with your camera or pick from your gallery — it helps us quote accurately.
+                </p>
+                {previews.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2.5">
+                    {previews.map((src, i) => (
+                      <div key={src} className="group relative h-20 w-20 overflow-hidden rounded-xl ring-1 ring-forest-200">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={src} alt={`Selected photo ${i + 1}`} className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(i)}
+                          aria-label={`Remove photo ${i + 1}`}
+                          className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-forest-950/70 text-xs leading-none text-white transition hover:bg-forest-950"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
 
