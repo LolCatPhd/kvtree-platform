@@ -1,3 +1,4 @@
+// client/src/components/LeadMap.tsx
 'use client';
 import { useEffect, useRef } from 'react';
 
@@ -56,6 +57,7 @@ export default function LeadMap({ leads }: { leads: MapLead[] }) {
     let cancelled = false;
     loadLeaflet().then((Lib) => {
       if (cancelled || !ref.current) return;
+
       if (!mapRef.current) {
         mapRef.current = Lib.map(ref.current).setView(BASE, 11);
         Lib.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -65,15 +67,28 @@ export default function LeadMap({ leads }: { leads: MapLead[] }) {
           .addTo(mapRef.current)
           .bindPopup('<b>KV Tree base</b><br/>Kempton Park');
       }
-      const map = mapRef.current;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (map as any)._kvMarkers?.forEach((m: unknown) => (map as any).removeLayer(m));
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (map as any)._kvMarkers = [];
+
+      const map = mapRef.current as any;
+
+      // remove any previous markers
+      map._kvMarkers?.forEach((m: unknown) => map.removeLayer(m));
+      map._kvMarkers = [];
+
+      const markers: any[] = [];
+
       leads
         .filter((l) => l.latitude != null && l.longitude != null)
         .forEach((l) => {
-          const marker = Lib.circleMarker([l.latitude, l.longitude], {
+          const lat = Number(l.latitude);
+          const lng = Number(l.longitude);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            // invalid coordinates — skip and warn for debugging
+            // eslint-disable-next-line no-console
+            console.warn('LeadMap: invalid coordinates for lead', l.id, l.latitude, l.longitude);
+            return;
+          }
+
+          const marker = Lib.circleMarker([lat, lng], {
             radius: 8,
             color: STATUS_COLORS[l.status] || '#6b7280',
             fillColor: STATUS_COLORS[l.status] || '#6b7280',
@@ -84,9 +99,23 @@ export default function LeadMap({ leads }: { leads: MapLead[] }) {
               `<b>${l.name || 'Lead #' + l.id}</b><br/>${l.service || ''}<br/>` +
                 `Status: ${l.status}<br/>${l.distance_km != null ? l.distance_km + ' km away' : ''}`
             );
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (map as any)._kvMarkers.push(marker);
+          map._kvMarkers.push(marker);
+          markers.push(marker);
         });
+
+      // if we added markers, fit the map to them; otherwise keep base view
+      if (markers.length > 0) {
+        try {
+          const group = Lib.featureGroup(markers);
+          map.fitBounds(group.getBounds().pad(0.15));
+          setTimeout(() => map.invalidateSize && map.invalidateSize(), 200);
+        } catch (err) {
+          // fallback
+          map.setView(BASE, 11);
+        }
+      } else {
+        map.setView(BASE, 11);
+      }
     });
     return () => {
       cancelled = true;
