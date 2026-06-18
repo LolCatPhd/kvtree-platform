@@ -18,6 +18,13 @@
   # of the repo. The private server key (GOOGLE_MAPS_API_KEY) is NOT listed here.
   SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY"
 
+  # Netlify also runs "smart detection", which flags anything matching a known
+  # secret *pattern* (a Google key starts with "AIza…") regardless of env vars —
+  # SECRETS_SCAN_OMIT_KEYS does not affect it. Since the only match is our public
+  # browser key (above), disable the heuristic. The explicit env-var scan stays
+  # on, so any genuinely private env var would still be caught.
+  SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
