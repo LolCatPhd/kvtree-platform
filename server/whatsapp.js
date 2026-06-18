@@ -15,10 +15,26 @@ if (!enabled) {
   console.warn('⚠️  Twilio WhatsApp not configured — WhatsApp messages will be logged, not sent.');
 }
 
+// Convert a phone number to E.164 (e.g. "083 654 8048" -> "+27836548048").
+// Twilio rejects local formats. Defaults to South Africa (+27); override with
+// DEFAULT_COUNTRY_CODE.
+function toE164(raw) {
+  if (!raw) return null;
+  let s = String(raw).trim();
+  if (s.startsWith('whatsapp:')) s = s.slice('whatsapp:'.length).trim();
+  if (s.startsWith('+')) return '+' + s.slice(1).replace(/\D/g, '');
+  s = s.replace(/\D/g, '');
+  if (!s) return null;
+  const cc = (process.env.DEFAULT_COUNTRY_CODE || '27').replace(/\D/g, '');
+  if (s.startsWith('0')) return `+${cc}${s.slice(1)}`; // local "0xx" -> "+CCxx"
+  if (s.startsWith(cc)) return `+${s}`; // already has country code, no plus
+  if (s.length <= 9) return `+${cc}${s}`; // local number without leading 0
+  return `+${s}`;
+}
+
 function normalize(number) {
-  if (!number) return null;
-  const trimmed = String(number).trim();
-  return trimmed.startsWith('whatsapp:') ? trimmed : `whatsapp:${trimmed}`;
+  const e164 = toE164(number);
+  return e164 ? `whatsapp:${e164}` : null;
 }
 
 async function sendWhatsApp({ to, body }) {
