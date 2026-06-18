@@ -9,8 +9,9 @@ const { pool, initDb, LEAD_STATUSES } = require('./db');
 const { hashPassword, verifyPassword, signToken, authRequired, requireRole } = require('./auth');
 const { sendEmail } = require('./mailer');
 const { sendWhatsApp } = require('./whatsapp');
-const { generateQuotePdf } = require('./pdf');
+const { generateQuotePdf, generateInvoicePdf } = require('./pdf');
 const { geocode, distanceKm } = require('./geocode');
+const { paymentsEnabled, buildPayment, verifySignature, validateWithPayfast } = require('./payments');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -21,6 +22,15 @@ const PUBLIC_URL = process.env.PUBLIC_URL || `http://localhost:${port}`;
 // ---------------------------------------------------------------------------
 app.use(cors());
 app.use(express.json());
+// PayFast posts ITN callbacks as urlencoded; keep the raw body for validation.
+app.use(
+  express.urlencoded({
+    extended: false,
+    verify: (req, res, buf) => {
+      req.rawBody = buf.toString();
+    },
+  })
+);
 
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 fs.mkdirSync(path.join(UPLOAD_DIR, 'photos'), { recursive: true });
@@ -83,16 +93,16 @@ app.post('/api/uploads', upload.array('photos', 10), (req, res) => {
 // Auth
 // ---------------------------------------------------------------------------
 app.post('/api/auth/register', asyncHandler(async (req, res) => {
-  const { name, email, password, phone } = req.body;
+  const { name, email, password, phone, marketingOptIn } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
   const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
   if (existing.rows.length) return res.status(409).json({ error: 'Email already registered' });
   const hash = await hashPassword(password);
   const { rows } = await pool.query(
-    `INSERT INTO users (name, email, password_hash, role, phone)
-     VALUES ($1, $2, $3, 'client', $4)
+    `INSERT INTO users (name, email, password_hash, role, phone, marketing_opt_in)
+     VALUES ($1, $2, $3, 'client', $4, $5)
      RETURNING id, name, email, role, phone`,
-    [name ?? null, email.toLowerCase(), hash, phone ?? null]
+    [name ?? null, email.toLowerCase(), hash, phone ?? null, marketingOptIn === true]
   );
   const user = rows[0];
   res.status(201).json({ token: signToken(user), user });
@@ -112,10 +122,24 @@ app.post('/api/auth/login', asyncHandler(async (req, res) => {
 
 app.get('/api/auth/me', authRequired, asyncHandler(async (req, res) => {
   const { rows } = await pool.query(
-    'SELECT id, name, email, role, phone FROM users WHERE id = $1',
+    'SELECT id, name, email, role, phone, marketing_opt_in FROM users WHERE id = $1',
     [req.user.id]
   );
   if (!rows.length) return res.status(404).json({ error: 'User not found' });
+  res.json(rows[0]);
+}));
+
+// Update own marketing preferences (POPIA consent).
+app.put('/api/auth/me', authRequired, asyncHandler(async (req, res) => {
+  const { rows } = await pool.query(
+    `UPDATE users SET
+       name = COALESCE($2, name),
+       phone = COALESCE($3, phone),
+       marketing_opt_in = COALESCE($4, marketing_opt_in)
+     WHERE id = $1 RETURNING id, name, email, role, phone, marketing_opt_in`,
+    [req.user.id, req.body.name ?? null, req.body.phone ?? null,
+     typeof req.body.marketingOptIn === 'boolean' ? req.body.marketingOptIn : null]
+  );
   res.json(rows[0]);
 }));
 
@@ -414,6 +438,179 @@ app.put('/api/jobs/:id', authRequired, requireRole('admin', 'worker'), asyncHand
 }));
 
 // ---------------------------------------------------------------------------
+// Invoices
+// ---------------------------------------------------------------------------
+// Staff: raise an invoice for a lead → generate PDF → mark lead 'Invoiced' → email client.
+app.post('/api/invoices', authRequired, requireRole('admin', 'worker'), asyncHandler(async (req, res) => {
+  const { leadId, quoteId, jobId, amount } = req.body;
+  const lid = parseId(leadId);
+  if (!lid) return res.status(400).json({ error: 'Valid leadId required' });
+  if (amount == null || Number.isNaN(Number(amount))) return res.status(400).json({ error: 'Valid amount required' });
+  const leadRes = await pool.query('SELECT * FROM leads WHERE id = $1', [lid]);
+  const lead = leadRes.rows[0];
+  if (!lead) return res.status(404).json({ error: 'Lead not found' });
+
+  const inserted = await pool.query(
+    `INSERT INTO invoices (lead_id, quote_id, job_id, amount, status)
+     VALUES ($1, $2, $3, $4, 'Unpaid') RETURNING *`,
+    [lid, parseId(quoteId), parseId(jobId), Number(amount)]
+  );
+  let invoice = inserted.rows[0];
+
+  const pdfPath = await generateInvoicePdf({ invoice, lead });
+  invoice = (await pool.query('UPDATE invoices SET pdf_path = $2 WHERE id = $1 RETURNING *', [invoice.id, pdfPath])).rows[0];
+  await pool.query("UPDATE leads SET status = 'Invoiced', updated_at = now() WHERE id = $1", [lid]);
+
+  await notify({
+    email: lead.email,
+    phone: lead.phone,
+    subject: `Invoice #${invoice.id} from KV Tree`,
+    message: `Hi ${lead.name || 'there'}, your invoice for "${lead.service}" of R ${Number(amount).toFixed(2)} is ready. Log in to your account to view and pay it online.`,
+    attachments: [{ filename: `invoice-${invoice.id}.pdf`, path: path.join(__dirname, pdfPath) }],
+  });
+
+  res.status(201).json(invoice);
+}));
+
+app.get('/api/invoices', authRequired, asyncHandler(async (req, res) => {
+  if (isStaff(req.user)) {
+    const { rows } = await pool.query('SELECT * FROM invoices ORDER BY created_at DESC');
+    return res.json(rows);
+  }
+  const { rows } = await pool.query(
+    `SELECT i.* FROM invoices i JOIN leads l ON l.id = i.lead_id
+     WHERE l.client_id = $1 OR l.email = $2 ORDER BY i.created_at DESC`,
+    [req.user.id, req.user.email]
+  );
+  res.json(rows);
+}));
+
+// Helper: fetch invoice + lead with an ownership check.
+async function getInvoiceForUser(id, user) {
+  const { rows } = await pool.query(
+    `SELECT i.*, l.client_id, l.email AS lead_email, l.name AS lead_name, l.phone AS lead_phone, l.service AS lead_service, l.address AS lead_address
+     FROM invoices i JOIN leads l ON l.id = i.lead_id WHERE i.id = $1`,
+    [id]
+  );
+  const inv = rows[0];
+  if (!inv) return { error: 404 };
+  if (!isStaff(user) && inv.client_id !== user.id && inv.lead_email !== user.email) return { error: 403 };
+  return { invoice: inv };
+}
+
+app.get('/api/invoices/:id', authRequired, asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Invalid id' });
+  const { invoice, error } = await getInvoiceForUser(id, req.user);
+  if (error === 404) return res.status(404).json({ error: 'Invoice not found' });
+  if (error === 403) return res.status(403).json({ error: 'Insufficient permissions' });
+  res.json(invoice);
+}));
+
+// Owner: initiate online payment. Returns PayFast form fields to POST.
+app.post('/api/invoices/:id/pay', authRequired, asyncHandler(async (req, res) => {
+  if (!paymentsEnabled) return res.status(503).json({ error: 'Online payments are not configured' });
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Invalid id' });
+  const { invoice, error } = await getInvoiceForUser(id, req.user);
+  if (error === 404) return res.status(404).json({ error: 'Invoice not found' });
+  if (error === 403) return res.status(403).json({ error: 'Insufficient permissions' });
+  if (invoice.status === 'Paid') return res.status(400).json({ error: 'Invoice already paid' });
+
+  const site = process.env.SITE_URL || PUBLIC_URL;
+  const payment = buildPayment({
+    invoice,
+    lead: { name: invoice.lead_name, email: invoice.lead_email },
+    returnUrl: `${site}/portal?paid=${invoice.id}`,
+    cancelUrl: `${site}/portal?cancelled=${invoice.id}`,
+    notifyUrl: `${PUBLIC_URL}/api/payments/payfast/notify`,
+  });
+  res.json(payment);
+}));
+
+// Public: PayFast ITN webhook. Verifies the callback then marks the invoice paid.
+app.post('/api/payments/payfast/notify', asyncHandler(async (req, res) => {
+  // Always 200 quickly so PayFast doesn't retry; do the work after validating.
+  res.status(200).end();
+  const body = req.body || {};
+  if (!verifySignature(body)) return console.warn('PayFast ITN: bad signature');
+  const valid = await validateWithPayfast(req.rawBody || '');
+  if (!valid) return console.warn('PayFast ITN: server validation failed');
+
+  const invoiceId = parseId(body.m_payment_id);
+  if (!invoiceId) return;
+  const invRes = await pool.query('SELECT * FROM invoices WHERE id = $1', [invoiceId]);
+  const invoice = invRes.rows[0];
+  if (!invoice) return;
+
+  // Confirm amount and completion status.
+  if (body.payment_status === 'COMPLETE' && Number(body.amount_gross) === Number(invoice.amount)) {
+    await pool.query(
+      "UPDATE invoices SET status = 'Paid', payment_reference = $2, paid_at = now(), updated_at = now() WHERE id = $1",
+      [invoiceId, body.pf_payment_id || null]
+    );
+    console.log(`💰 Invoice #${invoiceId} marked paid (ref ${body.pf_payment_id})`);
+  }
+}));
+
+// ---------------------------------------------------------------------------
+// Marketing campaigns (POPIA: only opted-in recipients)
+// ---------------------------------------------------------------------------
+async function campaignRecipients(segment) {
+  if (segment === 'past') {
+    const { rows } = await pool.query(
+      `SELECT DISTINCT u.email, u.name FROM users u
+       JOIN leads l ON (l.client_id = u.id OR l.email = u.email)
+       WHERE u.marketing_opt_in = true AND u.role = 'client'
+         AND l.status IN ('Completed', 'Invoiced')`
+    );
+    return rows;
+  }
+  const roleClause = segment === 'clients' ? "AND role = 'client'" : '';
+  const { rows } = await pool.query(
+    `SELECT email, name FROM users WHERE marketing_opt_in = true ${roleClause}`
+  );
+  return rows;
+}
+
+app.get('/api/campaigns', authRequired, requireRole('admin'), asyncHandler(async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM campaigns ORDER BY created_at DESC');
+  res.json(rows);
+}));
+
+// Preview the recipient count for a segment before sending.
+app.get('/api/campaigns/recipients', authRequired, requireRole('admin'), asyncHandler(async (req, res) => {
+  const recipients = await campaignRecipients(req.query.segment || 'all');
+  res.json({ count: recipients.length });
+}));
+
+app.post('/api/campaigns', authRequired, requireRole('admin'), asyncHandler(async (req, res) => {
+  const { subject, body, segment } = req.body;
+  if (!subject || !body) return res.status(400).json({ error: 'Subject and body are required' });
+  const seg = ['all', 'clients', 'past'].includes(segment) ? segment : 'all';
+  const recipients = await campaignRecipients(seg);
+
+  // Send individually so addresses aren't disclosed to each other.
+  await Promise.all(
+    recipients.map((r) =>
+      sendEmail({
+        to: r.email,
+        subject,
+        html: `<p>Hi ${r.name || 'there'},</p>${body}<hr/><p style="font-size:12px;color:#888">You received this because you opted in to KV Tree updates. Reply STOP to unsubscribe.</p>`,
+        text: body.replace(/<[^>]+>/g, ''),
+      }).catch((e) => console.error('campaign email error', e.message))
+    )
+  );
+
+  const { rows } = await pool.query(
+    `INSERT INTO campaigns (subject, body, segment, channel, recipients, sent_by)
+     VALUES ($1, $2, $3, 'email', $4, $5) RETURNING *`,
+    [subject, body, seg, recipients.length, req.user.id]
+  );
+  res.status(201).json(rows[0]);
+}));
+
+// ---------------------------------------------------------------------------
 // Stats for the admin dashboard
 // ---------------------------------------------------------------------------
 app.get('/api/stats', authRequired, requireRole('admin', 'worker'), asyncHandler(async (req, res) => {
@@ -423,7 +620,9 @@ app.get('/api/stats', authRequired, requireRole('admin', 'worker'), asyncHandler
       (SELECT COUNT(*)::int FROM leads) AS leads,
       (SELECT COUNT(*)::int FROM quotes) AS quotes,
       (SELECT COUNT(*)::int FROM jobs) AS jobs,
-      (SELECT COALESCE(SUM(price),0) FROM quotes WHERE status = 'Accepted') AS accepted_value
+      (SELECT COALESCE(SUM(price),0) FROM quotes WHERE status = 'Accepted') AS accepted_value,
+      (SELECT COALESCE(SUM(amount),0) FROM invoices WHERE status = 'Paid') AS paid_revenue,
+      (SELECT COALESCE(SUM(amount),0) FROM invoices WHERE status = 'Unpaid') AS outstanding
   `);
   res.json({ byStatus: byStatus.rows, totals: totals.rows[0] });
 }));

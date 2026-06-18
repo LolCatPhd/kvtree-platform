@@ -34,7 +34,12 @@ Every stage is a column on the admin Kanban board and a coloured pin on the map.
   worker assignment, job scheduling, onboard workers.
 - **Status map** — Leaflet/OpenStreetMap pins coloured by status, distance
   from base (no API key required; Mapbox GL is the 3D upgrade path).
-- **Branded quote PDFs** generated on the server (pdfkit).
+- **Branded quote & invoice PDFs** generated on the server (pdfkit).
+- **Invoicing & online payments** — raise invoices from a completed job;
+  clients pay online via **PayFast** (the standard SA gateway) with an ITN
+  webhook that reconciles payment status. Env-flagged.
+- **Marketing campaigns** — segment opted-in recipients (all / clients /
+  past clients) and send email blasts; **POPIA**-aware consent tracking.
 - **Notifications** — email (nodemailer/SMTP) + WhatsApp (Twilio), env-flagged;
   they log instead of send until credentials are provided.
 - **Geocoding** — addresses geocoded on creation (Nominatim by default).
@@ -72,8 +77,7 @@ See `server/.env.example` for the full list of environment variables.
 
 ## Roadmap (not yet built)
 
-Online payments (PayFast/Yoco), invoice generation, marketing/promo email
-campaigns with POPIA consent, calendar sync, 3D Mapbox map, AI photo-based
-quote estimates. Uploaded files currently use the API's local disk — move to
-S3/Supabase Storage for production (Railway disk is ephemeral).
+Calendar sync, true 3D Mapbox map, AI photo-based quote estimates, and an
+in-app two-way WhatsApp inbox. Uploaded files currently use the API's local
+disk — move to S3/Supabase Storage for production (Railway disk is ephemeral).
 ```

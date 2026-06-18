@@ -47,6 +47,7 @@ async function initDb() {
       password_hash TEXT NOT NULL,
       role          TEXT NOT NULL DEFAULT 'client',
       phone         TEXT,
+      marketing_opt_in BOOLEAN NOT NULL DEFAULT false,
       created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
     );
 
@@ -102,7 +103,35 @@ async function initDb() {
       address     TEXT,
       created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+
+    CREATE TABLE IF NOT EXISTS invoices (
+      id                SERIAL PRIMARY KEY,
+      lead_id           INTEGER REFERENCES leads(id) ON DELETE SET NULL,
+      quote_id          INTEGER REFERENCES quotes(id) ON DELETE SET NULL,
+      job_id            INTEGER REFERENCES jobs(id) ON DELETE SET NULL,
+      amount            NUMERIC NOT NULL,
+      status            TEXT NOT NULL DEFAULT 'Unpaid',
+      pdf_path          TEXT,
+      payment_reference TEXT,
+      paid_at           TIMESTAMPTZ,
+      created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS campaigns (
+      id           SERIAL PRIMARY KEY,
+      subject      TEXT NOT NULL,
+      body         TEXT NOT NULL,
+      segment      TEXT NOT NULL DEFAULT 'all',
+      channel      TEXT NOT NULL DEFAULT 'email',
+      recipients   INTEGER NOT NULL DEFAULT 0,
+      sent_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
   `);
+
+  // Additive migration for databases created before these columns existed.
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS marketing_opt_in BOOLEAN NOT NULL DEFAULT false;`);
 }
 
 module.exports = { pool, initDb, LEAD_STATUSES };

@@ -27,7 +27,14 @@ interface Lead {
 interface Worker { id: number; name: string | null; email: string; role: string }
 interface Stats {
   byStatus: { status: string; count: number }[];
-  totals: { leads: number; quotes: number; jobs: number; accepted_value: string };
+  totals: {
+    leads: number;
+    quotes: number;
+    jobs: number;
+    accepted_value: string;
+    paid_revenue: string;
+    outstanding: string;
+  };
 }
 
 export default function AdminPage() {
@@ -37,7 +44,7 @@ export default function AdminPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [tab, setTab] = useState<'pipeline' | 'map'>('pipeline');
+  const [tab, setTab] = useState<'pipeline' | 'map' | 'campaigns'>('pipeline');
   const [selected, setSelected] = useState<Lead | null>(null);
   const [showAddWorker, setShowAddWorker] = useState(false);
 
@@ -103,6 +110,14 @@ export default function AdminPage() {
             </button>
             {user.role === 'admin' && (
               <button
+                onClick={() => setTab('campaigns')}
+                className={`px-4 py-2 rounded-full text-sm ${tab === 'campaigns' ? 'bg-green-900 text-white' : 'bg-white border'}`}
+              >
+                Campaigns
+              </button>
+            )}
+            {user.role === 'admin' && (
+              <button
                 onClick={() => setShowAddWorker(true)}
                 className="px-4 py-2 rounded-full text-sm bg-white border"
               >
@@ -113,13 +128,17 @@ export default function AdminPage() {
         </div>
 
         {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
             <StatCard label="Leads" value={stats.totals.leads} />
             <StatCard label="Quotes" value={stats.totals.quotes} />
             <StatCard label="Jobs" value={stats.totals.jobs} />
             <StatCard
-              label="Accepted value"
-              value={`R ${Number(stats.totals.accepted_value || 0).toLocaleString('en-ZA')}`}
+              label="Paid revenue"
+              value={`R ${Number(stats.totals.paid_revenue || 0).toLocaleString('en-ZA')}`}
+            />
+            <StatCard
+              label="Outstanding"
+              value={`R ${Number(stats.totals.outstanding || 0).toLocaleString('en-ZA')}`}
             />
           </div>
         )}
@@ -165,8 +184,10 @@ export default function AdminPage() {
               );
             })}
           </div>
-        ) : (
+        ) : tab === 'map' ? (
           <LeadMap leads={leads} />
+        ) : (
+          <Campaigns />
         )}
       </div>
 
@@ -254,6 +275,7 @@ function LeadPanel({
   const [estimate, setEstimate] = useState(lead.estimated_quote ? String(lead.estimated_quote) : '');
   const [worker, setWorker] = useState(lead.assigned_worker_id ? String(lead.assigned_worker_id) : '');
   const [scheduledDate, setScheduledDate] = useState('');
+  const [invoiceAmount, setInvoiceAmount] = useState(lead.estimated_quote ? String(lead.estimated_quote) : '');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -362,6 +384,19 @@ function LeadPanel({
             </button>
           </div>
         </Section>
+
+        <Section title="Raise invoice">
+          <div className="flex gap-2">
+            <input value={invoiceAmount} onChange={(e) => setInvoiceAmount(e.target.value)} placeholder="Amount (R)" className="border rounded-lg px-3 py-2 flex-1 text-sm" />
+            <button
+              disabled={busy || !invoiceAmount}
+              onClick={() => run(() => api('/api/invoices', { method: 'POST', body: { leadId: lead.id, amount: Number(invoiceAmount) } }).then(() => {}), 'Invoice raised and emailed to client')}
+              className="bg-green-900 text-white px-3 rounded-lg text-sm"
+            >
+              Invoice
+            </button>
+          </div>
+        </Section>
       </div>
     </div>
   );
@@ -381,6 +416,91 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div className="border-t pt-4 mt-4">
       <h3 className="text-sm font-semibold text-gray-700 mb-2">{title}</h3>
       {children}
+    </div>
+  );
+}
+
+interface Campaign {
+  id: number;
+  subject: string;
+  segment: string;
+  recipients: number;
+  created_at: string;
+}
+
+function Campaigns() {
+  const [list, setList] = useState<Campaign[]>([]);
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [segment, setSegment] = useState('clients');
+  const [count, setCount] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    api<Campaign[]>('/api/campaigns').then(setList).catch(() => {});
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    api<{ count: number }>(`/api/campaigns/recipients?segment=${segment}`)
+      .then((r) => setCount(r.count))
+      .catch(() => setCount(null));
+  }, [segment]);
+
+  const send = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    try {
+      const c = await api<Campaign>('/api/campaigns', { method: 'POST', body: { subject, body, segment } });
+      setMsg(`Sent to ${c.recipients} recipient${c.recipients === 1 ? '' : 's'}.`);
+      setSubject('');
+      setBody('');
+      load();
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : 'Failed to send');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="grid md:grid-cols-2 gap-6">
+      <form onSubmit={send} className="bg-white rounded-xl border p-5">
+        <h2 className="font-semibold text-green-900 mb-3">New campaign</h2>
+        {msg && <div className="mb-3 text-sm rounded-lg bg-green-50 text-green-800 px-3 py-2">{msg}</div>}
+        <label className="block text-xs text-gray-500 mb-1">Audience</label>
+        <select value={segment} onChange={(e) => setSegment(e.target.value)} className="border rounded-lg px-3 py-2 w-full text-sm mb-1">
+          <option value="all">All opted-in users</option>
+          <option value="clients">Opted-in clients</option>
+          <option value="past">Past clients (completed/invoiced jobs)</option>
+        </select>
+        <p className="text-xs text-gray-400 mb-3">
+          {count != null ? `${count} recipient${count === 1 ? '' : 's'} will receive this` : '—'} (POPIA: opted-in only)
+        </p>
+        <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className="border rounded-lg px-3 py-2 w-full text-sm mb-2" required />
+        <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Message (HTML allowed)" rows={6} className="border rounded-lg px-3 py-2 w-full text-sm mb-3" required />
+        <button disabled={busy || !count} className="w-full bg-green-700 text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-60">
+          {busy ? 'Sending…' : 'Send campaign'}
+        </button>
+      </form>
+
+      <div>
+        <h2 className="font-semibold text-green-900 mb-3">Sent campaigns</h2>
+        {list.length === 0 && <p className="text-sm text-gray-500">No campaigns yet.</p>}
+        <div className="space-y-2">
+          {list.map((c) => (
+            <div key={c.id} className="bg-white rounded-xl border p-4">
+              <p className="font-medium text-sm text-gray-900">{c.subject}</p>
+              <p className="text-xs text-gray-500">
+                {c.segment} · {c.recipients} recipients · {new Date(c.created_at).toLocaleDateString('en-ZA')}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

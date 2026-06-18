@@ -8,6 +8,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [form, setForm] = useState({ name: '', email: '', password: '', phone: '' });
+  const [optIn, setOptIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -21,7 +22,7 @@ export default function LoginPage() {
       const user =
         mode === 'login'
           ? await login(form.email, form.password)
-          : await register({ name: form.name, email: form.email, password: form.password, phone: form.phone });
+          : await register({ name: form.name, email: form.email, password: form.password, phone: form.phone, marketingOptIn: optIn });
       router.push(user.role === 'client' ? '/portal' : '/admin');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -81,6 +82,12 @@ export default function LoginPage() {
               onChange={(e) => update('password', e.target.value)}
               required
             />
+            {mode === 'register' && (
+              <label className="flex items-start gap-2 text-xs text-gray-600">
+                <input type="checkbox" checked={optIn} onChange={(e) => setOptIn(e.target.checked)} className="mt-0.5" />
+                I&apos;d like to receive seasonal specials and promotions from KV Tree (optional).
+              </label>
+            )}
             <button
               type="submit"
               disabled={busy}
