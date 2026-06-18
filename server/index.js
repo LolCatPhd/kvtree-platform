@@ -217,15 +217,16 @@ app.post('/api/leads', asyncHandler(async (req, res) => {
   );
   const lead = rows[0];
 
-  // Acknowledge to client; alert internal inbox.
-  await notify({
+  // Acknowledge to client; alert internal inbox. Fire-and-forget so a slow or
+  // misconfigured email/WhatsApp provider can never hang the HTTP response.
+  notify({
     email,
     phone,
     subject: 'We received your quote request — KV Tree',
     message: `Hi ${name || 'there'}, thanks for your request for "${service || 'tree services'}". Our team will review it and be in touch shortly.`,
-  });
+  }).catch((e) => console.error('notify error', e.message));
   if (process.env.INTERNAL_NOTIFY_EMAIL) {
-    await notify({ email: process.env.INTERNAL_NOTIFY_EMAIL, subject: 'New quote request', message: `New lead #${lead.id} from ${name} (${email}) — ${service}` });
+    notify({ email: process.env.INTERNAL_NOTIFY_EMAIL, subject: 'New quote request', message: `New lead #${lead.id} from ${name} (${email}) — ${service}` }).catch((e) => console.error('notify error', e.message));
   }
 
   res.status(201).json(lead);
@@ -320,13 +321,14 @@ app.post('/api/quotes', authRequired, requireRole('admin', 'worker'), asyncHandl
 
   // Advance the lead and notify the client with the quote link.
   await pool.query("UPDATE leads SET status = 'Quoted', updated_at = now() WHERE id = $1", [lid]);
-  await notify({
+  // Fire-and-forget — don't block the response on email/WhatsApp delivery.
+  notify({
     email: lead.email,
     phone: lead.phone,
     subject: `Your KV Tree quotation #${quote.id}`,
     message: `Hi ${lead.name || 'there'}, your quotation for "${lead.service}" is ready: R ${Number(price || 0).toFixed(2)}. View it here: ${pdfUrl}`,
     attachments: [{ filename: `quote-${quote.id}.pdf`, path: localPath }],
-  });
+  }).catch((e) => console.error('notify error', e.message));
 
   res.status(201).json(quote);
 }));
@@ -513,13 +515,14 @@ app.post('/api/invoices', authRequired, requireRole('admin', 'worker'), asyncHan
   invoice = (await pool.query('UPDATE invoices SET pdf_path = $2 WHERE id = $1 RETURNING *', [invoice.id, pdfUrl])).rows[0];
   await pool.query("UPDATE leads SET status = 'Invoiced', updated_at = now() WHERE id = $1", [lid]);
 
-  await notify({
+  // Fire-and-forget — don't block the response on email/WhatsApp delivery.
+  notify({
     email: lead.email,
     phone: lead.phone,
     subject: `Invoice #${invoice.id} from KV Tree`,
     message: `Hi ${lead.name || 'there'}, your invoice for "${lead.service}" of R ${Number(amount).toFixed(2)} is ready. Log in to your account to view and pay it online.`,
     attachments: [{ filename: `invoice-${invoice.id}.pdf`, path: localPath }],
-  });
+  }).catch((e) => console.error('notify error', e.message));
 
   res.status(201).json(invoice);
 }));
