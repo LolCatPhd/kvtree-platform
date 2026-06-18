@@ -119,6 +119,37 @@ app.get('/api/auth/me', authRequired, asyncHandler(async (req, res) => {
   res.json(rows[0]);
 }));
 
+// Admin creates a staff account (worker or admin), or a client.
+app.post('/api/users', authRequired, requireRole('admin'), asyncHandler(async (req, res) => {
+  const { name, email, password, phone, role } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
+  const allowed = ['client', 'worker', 'admin'];
+  const userRole = allowed.includes(role) ? role : 'worker';
+  const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
+  if (existing.rows.length) return res.status(409).json({ error: 'Email already registered' });
+  const hash = await hashPassword(password);
+  const { rows } = await pool.query(
+    `INSERT INTO users (name, email, password_hash, role, phone)
+     VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, role, phone`,
+    [name ?? null, email.toLowerCase(), hash, userRole, phone ?? null]
+  );
+  res.status(201).json(rows[0]);
+}));
+
+// Admin updates a user's role.
+app.put('/api/users/:id/role', authRequired, requireRole('admin'), asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Invalid id' });
+  const allowed = ['client', 'worker', 'admin'];
+  if (!allowed.includes(req.body.role)) return res.status(400).json({ error: 'Invalid role' });
+  const { rows } = await pool.query(
+    'UPDATE users SET role = $2 WHERE id = $1 RETURNING id, name, email, role, phone',
+    [id, req.body.role]
+  );
+  if (!rows.length) return res.status(404).json({ error: 'User not found' });
+  res.json(rows[0]);
+}));
+
 // List workers/users for assignment (admin only)
 app.get('/api/users', authRequired, requireRole('admin'), asyncHandler(async (req, res) => {
   const role = req.query.role;
