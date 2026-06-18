@@ -10,6 +10,14 @@
   # to Turbopack, whose production chunks aren't traced into Netlify's serverless
   # functions and fail at runtime with ChunkLoadError. --webpack is the real fix.
 
+  # NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is a *browser* key: NEXT_PUBLIC_* vars are
+  # inlined into the client bundle by design (the Places autocomplete needs it in
+  # the browser). It is locked down with HTTP-referrer + API restrictions in
+  # Google Cloud, not by secrecy, so it is safe to ship. Tell Netlify's secret
+  # scanner to ignore this env var's value — by key name, so the value stays out
+  # of the repo. The private server key (GOOGLE_MAPS_API_KEY) is NOT listed here.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
