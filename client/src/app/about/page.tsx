@@ -98,29 +98,23 @@ export default function About() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="border rounded-lg p-6 text-center hover:shadow-lg transition">
-              <img
-                src="https://via.placeholder.com/150?text=Team+Member+1"
-                alt="Team member"
-                className="w-32 h-32 rounded-full mx-auto mb-4"
-              />
+              <div className="w-32 h-32 rounded-full mx-auto mb-4 bg-green-900 text-white flex items-center justify-center text-3xl font-bold">
+                KM
+              </div>
               <h3 className="text-xl font-bold mb-2">Kelvin van der Merwe</h3>
               <p className="text-gray-600">Founder & Chief Arborist</p>
             </div>
             <div className="border rounded-lg p-6 text-center hover:shadow-lg transition">
-              <img
-                src="https://via.placeholder.com/150?text=Team+Member+2"
-                alt="Team member"
-                className="w-32 h-32 rounded-full mx-auto mb-4"
-              />
+              <div className="w-32 h-32 rounded-full mx-auto mb-4 bg-green-900 text-white flex items-center justify-center text-3xl font-bold">
+                TM
+              </div>
               <h3 className="text-xl font-bold mb-2">Thandiwe Mokoena</h3>
               <p className="text-gray-600">Operations Manager</p>
             </div>
             <div className="border rounded-lg p-6 text-center hover:shadow-lg transition">
-              <img
-                src="https://via.placeholder.com/150?text=Team+Member+3"
-                alt="Team member"
-                className="w-32 h-32 rounded-full mx-auto mb-4"
-              />
+              <div className="w-32 h-32 rounded-full mx-auto mb-4 bg-green-900 text-white flex items-center justify-center text-3xl font-bold">
+                JB
+              </div>
               <h3 className="text-xl font-bold mb-2">Jaco Botha</h3>
               <p className="text-gray-600">Lead Arborist</p>
             </div>

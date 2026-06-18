@@ -1,3 +1,10 @@
+import treeFellingImg from "./portfolio-tree-felling-1.jpg.webp";
+import stumpGrindingImg from "./portfolio-stump-grinding-1.jpg.webp";
+import siteClearingImg from "./portfolio-site-clearing-1.jpg.webp";
+import emergencyImg from "./portfolio-emergency-response-1.jpg.webp";
+import pruningImg from "./portfolio-pruning-1.jpg.webp";
+import woodSalesImg from "./portfolio-wood-sales-1.jpg.webp";
+
 export default function Portfolio() {
   return (
     <>
@@ -40,7 +47,7 @@ export default function Portfolio() {
             {/* Project 1 */}
             <div className="border rounded-lg overflow-hidden hover:shadow-lg transition">
               <img
-                src="https://via.placeholder.com/600x400?text=Tree+Felling+Project"
+                src={treeFellingImg.src}
                 alt="Large tree felling in Kempton Park"
                 className="w-full h-48 object-cover"
               />
@@ -59,7 +66,7 @@ export default function Portfolio() {
             {/* Project 2 */}
             <div className="border rounded-lg overflow-hidden hover:shadow-lg transition">
               <img
-                src="https://via.placeholder.com/600x400?text=Stump+Grinding+Project"
+                src={stumpGrindingImg.src}
                 alt="Stump grinding in Edenvale"
                 className="w-full h-48 object-cover"
               />
@@ -78,7 +85,7 @@ export default function Portfolio() {
             {/* Project 3 */}
             <div className="border rounded-lg overflow-hidden hover:shadow-lg transition">
               <img
-                src="https://via.placeholder.com/600x400?text=Site+Clearing+Project"
+                src={siteClearingImg.src}
                 alt="Site clearing for development"
                 className="w-full h-48 object-cover"
               />
@@ -96,7 +103,7 @@ export default function Portfolio() {
             {/* Project 4 */}
             <div className="border rounded-lg overflow-hidden hover:shadow-lg transition">
               <img
-                src="https://via.placeholder.com/600x400?text=Emergency+Response"
+                src={emergencyImg.src}
                 alt="Emergency storm response"
                 className="w-full h-48 object-cover"
               />
@@ -115,7 +122,7 @@ export default function Portfolio() {
             {/* Project 5 */}
             <div className="border rounded-lg overflow-hidden hover:shadow-lg transition">
               <img
-                src="https://via.placeholder.com/600x400?text=Pruning+Project"
+                src={pruningImg.src}
                 alt="Tree pruning in Modderfontein"
                 className="w-full h-48 object-cover"
               />
@@ -134,7 +141,7 @@ export default function Portfolio() {
             {/* Project 6 */}
             <div className="border rounded-lg overflow-hidden hover:shadow-lg transition">
               <img
-                src="https://via.placeholder.com/600x400?text=Wood+Sales"
+                src={woodSalesImg.src}
                 alt="Wood sales"
                 className="w-full h-48 object-cover"
               />

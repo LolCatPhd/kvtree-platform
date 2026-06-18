@@ -1,6 +1,6 @@
 'use client';
 import { useState } from "react";
-import { apiPath } from '@/lib/config';
+import { api, uploadPhotos } from '@/lib/api';
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -37,31 +37,23 @@ export default function Contact() {
     setSubmitError(null);
     
     try {
-      // In a real app, you would send this data to your backend API
-      const response = await fetch(apiPath('/api/leads'), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      // Upload any photos first, then attach their URLs to the lead.
+      const photoUrls = await uploadPhotos(uploadedPhotos);
+
+      const result = await api('/api/leads', {
+        method: 'POST',
+        body: {
           name: formData.name,
           email: formData.email,
           phone: formData.phone,
           address: formData.address,
           service: formData.service,
           description: formData.description,
-          // Note: Photo upload handling will be implemented in a future update
-          // For now, we're not sending photos as the API doesn't handle file uploads yet
-        }),
+          photos: photoUrls,
+        },
       });
-
-      if (!response.ok) {
-        throw new Error(`Failed to submit: ${response.statusText}`);
-      }
-
-      const result = await response.json();
       console.log("Lead created:", result);
-      
+
       setIsSubmitting(false);
       setSubmitSuccess(true);
       // Reset form

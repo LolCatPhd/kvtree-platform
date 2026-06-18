@@ -8,6 +8,8 @@ export const API_URL = (() => {
 })();
 
 export function apiPath(path = "") {
+  // Already an absolute URL (e.g. a stored PDF or S3 object) — use as-is.
+  if (/^https?:\/\//i.test(path)) return path;
   if (!API_URL) return path;
   // ensure single slash
   return `${API_URL.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;

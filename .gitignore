@@ -1,0 +1,17 @@
+# dependencies
+node_modules/
+
+# env / secrets — never commit real credentials
+.env
+.env.*
+!.env.example
+
+# runtime upload artifacts
+server/uploads/
+
+# logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
