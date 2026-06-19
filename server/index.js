@@ -520,7 +520,7 @@ app.post('/api/invoices', authRequired, requireRole('admin', 'worker'), asyncHan
     email: lead.email,
     phone: lead.phone,
     subject: `Invoice #${invoice.id} from KV Tree`,
-    message: `Hi ${lead.name || 'there'}, your invoice for "${lead.service}" of R ${Number(amount).toFixed(2)} is ready. Log in to your account to view and pay it online.`,
+    message: `Hi ${lead.name || 'there'}, your invoice for "${lead.service}" of R ${Number(amount).toFixed(2)} is ready. View it here: ${pdfUrl} — or log in to your account to pay it online.`,
     attachments: [{ filename: `invoice-${invoice.id}.pdf`, path: localPath }],
   }).catch((e) => console.error('notify error', e.message));
 
