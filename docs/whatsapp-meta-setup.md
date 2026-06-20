@@ -18,14 +18,16 @@ back. Nothing breaks if you pause.
 
 ## ⚠️ Read this first — 3 important things
 
-1. **The phone number you use for the API CANNOT also be used in the normal
-   WhatsApp / WhatsApp Business app at the same time.** When a number is
-   connected to the API, it gets removed from the phone app.
-   - 👉 **Best option: use a brand-new number** (a cheap spare SIM, or a second
-     number) dedicated to the website. That way your personal/business WhatsApp
-     on your phone keeps working exactly as it does now.
-   - If you want to use your current business WhatsApp number, that's possible
-     too — but tell me first, because it means that number leaves the phone app.
+1. **We are using a dedicated SIM / phone number for the API only — it will NOT
+   be used inside a WhatsApp app on any phone.**
+   - You only need the SIM in a phone **once**, briefly, to receive a single
+     verification SMS from Meta in Step 3. After that the SIM can be removed
+     and stored in a drawer — it's no longer needed.
+   - The number lives in Meta's cloud. The website sends and receives messages
+     through Meta's servers directly. No phone needs to stay on, charged, or
+     connected.
+   - **Do not** install the WhatsApp Business app with this number — it would
+     conflict with the API setup. Keep your own WhatsApp exactly as it is.
 
 2. **Meta will ask for a payment card.** WhatsApp gives a free allowance every
    month (more than enough for us to start), but Meta still requires a card on
@@ -42,8 +44,8 @@ back. Nothing breaks if you pause.
 ## What you'll need before you start
 
 - [ ] A Facebook account (personal is fine — it's only used to log in).
-- [ ] The phone number you'll dedicate to the website (see warning #1), with the
-      phone handy to receive a verification code.
+- [ ] The dedicated KV Tree SIM/number, **inserted in any phone** just long
+      enough to receive one SMS code in Step 3. Any old phone will do.
 - [ ] A debit/credit card.
 - [ ] Business details (KV Tree's name, address, website `kvtree…`).
 
@@ -103,10 +105,12 @@ limits.
 2. When asked, **create a new WhatsApp Business Account** named **KV Tree**.
 3. **Display name:** enter **KV Tree** (this is the name customers see). Meta
    reviews display names — keep it to your real business name.
-4. **Add the phone number** you're dedicating to the website (warning #1).
-5. Choose **verify by SMS** (or voice call) and **enter the code** Meta sends to
-   that number.
-6. ✅ When the number shows a green/"Connected" status, this step is done.
+4. **Add the dedicated KV Tree phone number.**
+5. Choose **verify by SMS** (or voice call). Make sure the SIM is in a phone
+   right now — Meta will send a code to it.
+6. Enter the code and confirm. ✅ Once the number shows "Connected", **the SIM
+   is done** — remove it from the phone and store it safely. It won't be needed
+   again unless you ever move the number to a different account.
 
 ---
 
