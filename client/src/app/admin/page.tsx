@@ -26,6 +26,7 @@ interface Lead {
   created_at: string;
 }
 interface Worker { id: number; name: string | null; email: string; role: string }
+interface Crew { id: number; name: string; phone: string | null; default_daily_rate: string | number; active: boolean }
 interface Stats {
   byStatus: { status: string; count: number }[];
   totals: {
@@ -52,14 +53,19 @@ const STATUS_STYLES: Record<string, { dot: string; bar: string; badge: string }>
 const fallbackStyle = { dot: 'bg-forest-400', bar: 'bg-forest-400', badge: 'bg-forest-100 text-forest-700' };
 const statusStyle = (s: string) => STATUS_STYLES[s] ?? fallbackStyle;
 
+// Pipeline order, mirrors LEAD_STATUSES on the server. Used for stage-aware UI.
+const PIPELINE = Object.keys(STATUS_STYLES);
+const stageIdx = (s: string) => PIPELINE.indexOf(s);
+
 export default function AdminPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [statuses, setStatuses] = useState<string[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
+  const [crew, setCrew] = useState<Crew[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [tab, setTab] = useState<'pipeline' | 'map' | 'billing' | 'campaigns'>('pipeline');
+  const [tab, setTab] = useState<'pipeline' | 'map' | 'billing' | 'crew' | 'campaigns'>('pipeline');
   const [selected, setSelected] = useState<Lead | null>(null);
   const [showAddWorker, setShowAddWorker] = useState(false);
   const [dragId, setDragId] = useState<number | null>(null);
@@ -75,6 +81,8 @@ export default function AdminPage() {
     setStats(s);
     // Workers list is admin-only; ignore failure for workers.
     api<Worker[]>('/api/users?role=worker').then(setWorkers).catch(() => {});
+    // Crew roster (job costing) — staff-visible.
+    api<Crew[]>('/api/workers').then(setCrew).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -87,6 +95,26 @@ export default function AdminPage() {
 
   const moveLead = async (lead: Lead, status: string) => {
     if (lead.status === status) return;
+
+    // Pipeline guardrails — warn (or block) before an unusual transition.
+    const from = statuses.indexOf(lead.status);
+    const to = statuses.indexOf(status);
+    const bookedIdx = statuses.indexOf('Booked');
+    if (lead.status === 'Invoiced') {
+      alert('This job is invoiced — that is final. Reverse the invoice before moving it back.');
+      return;
+    }
+    let warn = '';
+    if (to < from) {
+      warn = `Move "${lead.name || 'this lead'}" backwards from ${lead.status} to ${status}?`;
+      if (to < bookedIdx && from >= bookedIdx) {
+        warn += '\n\nThis cancels the scheduled booking date and removes its Google Calendar event.';
+      }
+    } else if (to - from > 1) {
+      warn = `This skips ${statuses.slice(from + 1, to).join(', ')}. Send "${lead.name || 'this lead'}" straight to ${status}?`;
+    }
+    if (warn && !window.confirm(warn)) return;
+
     setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, status } : l)));
     try {
       await api(`/api/leads/${lead.id}`, { method: 'PUT', body: { status } });
@@ -107,7 +135,9 @@ export default function AdminPage() {
     { key: 'pipeline', label: 'Pipeline' },
     { key: 'map', label: 'Map' },
     { key: 'billing', label: 'Billing' },
-    ...(user.role === 'admin' ? [{ key: 'campaigns' as const, label: 'Campaigns' }] : []),
+    ...(user.role === 'admin'
+      ? [{ key: 'crew' as const, label: 'Crew' }, { key: 'campaigns' as const, label: 'Campaigns' }]
+      : []),
   ];
 
   return (
@@ -231,6 +261,8 @@ export default function AdminPage() {
           </div>
         ) : tab === 'billing' ? (
           <Billing />
+        ) : tab === 'crew' ? (
+          <CrewManager crew={crew} onChanged={load} />
         ) : (
           <Campaigns />
         )}
@@ -240,9 +272,11 @@ export default function AdminPage() {
         <LeadPanel
           lead={selected}
           workers={workers}
+          crew={crew}
           canAssign={user.role === 'admin'}
           onClose={() => setSelected(null)}
           onChanged={() => { load(); setSelected(null); }}
+          onRefresh={load}
         />
       )}
 
@@ -307,18 +341,34 @@ function StatCard({ label, value, accent }: { label: string; value: string | num
   );
 }
 
+// What the operator should usually do next at each pipeline stage. Drives the
+// guidance banner and which actions get visually emphasised in the panel.
+const STAGE_GUIDE: Record<string, string> = {
+  'Quote Requested': 'Assign a worker for a site visit, or send a quote if scope is clear.',
+  'Site Visit Scheduled': 'After the visit, create & send the quote.',
+  'Quoted': 'Waiting on the client. Once accepted, schedule the job.',
+  'Booked': 'Job is booked. Mark it In Progress when the crew starts on site.',
+  'In Progress': 'Log crew days under Job costing as work happens. Raise the invoice when done.',
+  'Completed': 'Work is done — raise the final invoice.',
+  'Invoiced': 'Invoiced. This card is locked; manage payment under Billing.',
+};
+
 function LeadPanel({
   lead,
   workers,
+  crew,
   canAssign,
   onClose,
   onChanged,
+  onRefresh,
 }: {
   lead: Lead;
   workers: Worker[];
+  crew: Crew[];
   canAssign: boolean;
   onClose: () => void;
   onChanged: () => void;
+  onRefresh: () => void;
 }) {
   const [price, setPrice] = useState('');
   const [details, setDetails] = useState('');
@@ -352,6 +402,40 @@ function LeadPanel({
         body: { leadId: lead.id, assignedWorkerId: worker ? Number(worker) : null, scheduledDate },
       });
       setMsg(job.calendar_link ? 'Job scheduled and added to Google Calendar.' : 'Job scheduled.');
+      onChanged();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const locked = lead.status === 'Invoiced';
+  // Sending a quote on an already-booked (or later) job supersedes the booking.
+  const isRequote = stageIdx(lead.status) >= stageIdx('Booked') && !locked;
+
+  const sendQuote = async () => {
+    if (
+      isRequote &&
+      !window.confirm(
+        `This lead is already at "${lead.status}". Sending a new quote will cancel the booking ` +
+          `(date + calendar), reset the card to Quoted, and re-send the documents to the client. Continue?`
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      const q = await api<{ requote?: boolean }>('/api/quotes', {
+        method: 'POST',
+        body: { leadId: lead.id, price: Number(price), details },
+      });
+      setMsg(
+        q.requote
+          ? 'New quote sent. Booking was reset and the card returned to Quoted.'
+          : 'Quote generated, PDF created and sent to the client.'
+      );
       onChanged();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Failed');
@@ -399,6 +483,13 @@ function LeadPanel({
           </div>
         )}
 
+        {STAGE_GUIDE[lead.status] && (
+          <div className="mb-3 flex items-start gap-2 rounded-lg border border-forest-100 bg-sand-50 px-3 py-2 text-xs text-forest-600">
+            <span className="mt-0.5 font-semibold uppercase tracking-wide text-forest-400">Next</span>
+            <span>{STAGE_GUIDE[lead.status]}</span>
+          </div>
+        )}
+
         {msg && <div className="mb-3 rounded-lg bg-forest-50 px-3 py-2 text-sm text-forest-800">{msg}</div>}
 
         {canAssign && (
@@ -434,16 +525,29 @@ function LeadPanel({
           </div>
         </Section>
 
-        <Section title="Create & send quote">
-          <input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Final price (R)" className={`${inputClass} mb-2`} />
-          <textarea value={details} onChange={(e) => setDetails(e.target.value)} placeholder="Quote details / scope of work" className={`${inputClass} mb-2`} rows={3} />
-          <button
-            disabled={busy || !price}
-            onClick={() => run(() => api('/api/quotes', { method: 'POST', body: { leadId: lead.id, price: Number(price), details } }).then(() => {}), 'Quote generated, PDF created and sent to client')}
-            className="w-full rounded-lg bg-forest-700 py-2 text-sm font-semibold text-white hover:bg-forest-600 disabled:opacity-60"
-          >
-            Generate PDF & notify client
-          </button>
+        <Section title={isRequote ? 'Re-quote (supersedes booking)' : 'Create & send quote'}>
+          {locked ? (
+            <p className="rounded-lg bg-sand-50 px-3 py-2 text-xs text-forest-500">
+              Invoiced — reverse the invoice in Billing before issuing a new quote.
+            </p>
+          ) : (
+            <>
+              {isRequote && (
+                <p className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                  This job is already {lead.status}. Sending a new quote cancels the booking and returns the card to Quoted.
+                </p>
+              )}
+              <input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Final price (R)" className={`${inputClass} mb-2`} />
+              <textarea value={details} onChange={(e) => setDetails(e.target.value)} placeholder="Quote details / scope of work" className={`${inputClass} mb-2`} rows={3} />
+              <button
+                disabled={busy || !price}
+                onClick={sendQuote}
+                className="w-full rounded-lg bg-forest-700 py-2 text-sm font-semibold text-white hover:bg-forest-600 disabled:opacity-60"
+              >
+                {isRequote ? 'Re-quote & notify client' : 'Generate PDF & notify client'}
+              </button>
+            </>
+          )}
         </Section>
 
         <Section title="Schedule job">
@@ -458,6 +562,10 @@ function LeadPanel({
             </button>
           </div>
         </Section>
+
+        {stageIdx(lead.status) >= stageIdx('Booked') && (
+          <JobCosting lead={lead} crew={crew} onMutate={onRefresh} />
+        )}
 
         <Section title="Raise invoice">
           <div className="flex gap-2">
@@ -490,6 +598,304 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div className="mt-4 border-t border-forest-100 pt-4">
       <h3 className="mb-2 text-sm font-semibold text-forest-700">{title}</h3>
       {children}
+    </div>
+  );
+}
+
+interface CostEntry {
+  id: number;
+  worker_id: number;
+  worker_name: string;
+  worker_phone: string | null;
+  work_date: string;
+  rate: string | number;
+  paid: boolean;
+  payment_reference: string | null;
+}
+interface CostSummary {
+  worker_id: number;
+  worker_name: string;
+  worker_phone: string | null;
+  days: number;
+  total: string | number;
+  unpaid_total: string | number;
+  unpaid_days: number;
+}
+interface Costing { entries: CostEntry[]; summary: CostSummary[] }
+
+const today = () => new Date().toISOString().slice(0, 10);
+const dayLabel = (d: string) =>
+  new Date(`${d}T00:00:00`).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short' });
+
+// Per-lead job costing: log which crew worked which days, see who is owed, and
+// pay a worker (marks their outstanding days paid + WhatsApps a receipt).
+function JobCosting({ lead, crew, onMutate }: { lead: Lead; crew: Crew[]; onMutate: () => void }) {
+  const [data, setData] = useState<Costing | null>(null);
+  const [workerId, setWorkerId] = useState('');
+  const [date, setDate] = useState(today());
+  const [rate, setRate] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const activeCrew = crew.filter((c) => c.active);
+
+  const refresh = useCallback(() => {
+    api<Costing>(`/api/leads/${lead.id}/costing`).then(setData).catch(() => {});
+  }, [lead.id]);
+  useEffect(() => { refresh(); }, [refresh]);
+
+  // Selecting a worker defaults the rate input to their default daily rate.
+  const pickWorker = (id: string) => {
+    setWorkerId(id);
+    const w = crew.find((c) => String(c.id) === id);
+    setRate(w ? String(w.default_daily_rate) : '');
+  };
+
+  const act = async (fn: () => Promise<Costing>, ok?: string) => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      setData(await fn());
+      if (ok) setMsg(ok);
+      onMutate();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const addDay = () =>
+    act(
+      () =>
+        api<Costing>(`/api/leads/${lead.id}/costing`, {
+          method: 'POST',
+          body: { workerId: Number(workerId), dates: [date], rate: rate ? Number(rate) : undefined },
+        }),
+      'Day logged'
+    );
+
+  const togglePaid = (e: CostEntry) =>
+    act(() => api<Costing>(`/api/costing/${e.id}`, { method: 'PUT', body: { paid: !e.paid } }));
+  const removeEntry = (e: CostEntry) =>
+    act(() => api<Costing>(`/api/costing/${e.id}`, { method: 'DELETE' }));
+  const editRate = (e: CostEntry) => {
+    const v = window.prompt(`Daily rate for ${e.worker_name} on ${dayLabel(e.work_date)} (R)`, String(e.rate));
+    if (v == null) return;
+    act(() => api<Costing>(`/api/costing/${e.id}`, { method: 'PUT', body: { rate: Number(v) } }));
+  };
+
+  const payWorker = async (s: CostSummary) => {
+    if (!window.confirm(
+      `Pay ${s.worker_name} ${rand(s.unpaid_total)} for ${s.unpaid_days} day(s)?` +
+        (s.worker_phone ? `\n\nA WhatsApp receipt will be sent to ${s.worker_phone}.` : '\n\n(No phone on file — no receipt will be sent.)')
+    )) return;
+    const reference = window.prompt('Payment reference (optional)', 'Cash / EFT') ?? undefined;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await api<Costing & { whatsapp?: { skipped?: boolean; error?: string; sid?: string } }>(
+        `/api/leads/${lead.id}/costing/pay`,
+        { method: 'POST', body: { workerId: s.worker_id, reference } }
+      );
+      setData({ entries: res.entries, summary: res.summary });
+      const w = res.whatsapp || {};
+      setMsg(
+        w.error ? `Paid, but WhatsApp failed: ${w.error}`
+          : w.skipped ? 'Marked paid. WhatsApp not configured / no phone — no receipt sent.'
+          : 'Paid and WhatsApp receipt sent.'
+      );
+      onMutate();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const totalOwed = (data?.summary || []).reduce((s, r) => s + Number(r.unpaid_total || 0), 0);
+
+  return (
+    <Section title="Job costing">
+      {msg && <div className="mb-2 rounded-lg bg-forest-50 px-3 py-2 text-xs text-forest-800">{msg}</div>}
+
+      {activeCrew.length === 0 ? (
+        <p className="rounded-lg bg-sand-50 px-3 py-2 text-xs text-forest-500">
+          No active crew yet. Add crew under the Crew tab first.
+        </p>
+      ) : (
+        <div className="mb-3 space-y-2">
+          <div className="flex gap-2">
+            <select value={workerId} onChange={(e) => pickWorker(e.target.value)} className={`${inputClass} flex-1`}>
+              <option value="">Select worker…</option>
+              {activeCrew.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${inputClass} w-40`} />
+          </div>
+          <div className="flex gap-2">
+            <input value={rate} onChange={(e) => setRate(e.target.value)} placeholder="Rate for the day (R)" className={`${inputClass} flex-1`} />
+            <button
+              disabled={busy || !workerId || !date}
+              onClick={addDay}
+              className="rounded-lg bg-forest-900 px-4 text-sm font-semibold text-white hover:bg-forest-800 disabled:opacity-60"
+            >
+              Add day
+            </button>
+          </div>
+        </div>
+      )}
+
+      {data && data.summary.length > 0 && (
+        <div className="space-y-2">
+          {data.summary.map((s) => (
+            <div key={s.worker_id} className="rounded-lg border border-forest-100 p-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-forest-900">{s.worker_name}</p>
+                  <p className="text-xs text-forest-500">
+                    {s.days} day{s.days === 1 ? '' : 's'} · {rand(s.total)} total
+                    {Number(s.unpaid_total) > 0 && (
+                      <span className="text-amber-700"> · {rand(s.unpaid_total)} owed</span>
+                    )}
+                  </p>
+                </div>
+                {Number(s.unpaid_total) > 0 ? (
+                  <button
+                    disabled={busy}
+                    onClick={() => payWorker(s)}
+                    className="shrink-0 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    Pay & WhatsApp
+                  </button>
+                ) : (
+                  <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Settled</span>
+                )}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {data.entries.filter((e) => e.worker_id === s.worker_id).map((e) => (
+                  <span
+                    key={e.id}
+                    className={`group inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                      e.paid ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                    }`}
+                  >
+                    <button onClick={() => togglePaid(e)} disabled={busy} title={e.paid ? 'Mark unpaid' : 'Mark paid'}>
+                      {dayLabel(e.work_date)}
+                    </button>
+                    <button onClick={() => editRate(e)} disabled={busy} className="opacity-70 hover:opacity-100" title="Edit rate">
+                      {rand(e.rate)}
+                    </button>
+                    <button onClick={() => removeEntry(e)} disabled={busy} className="text-forest-300 hover:text-red-600" title="Remove">×</button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+          {totalOwed > 0 && (
+            <p className="pt-1 text-right text-xs font-semibold text-amber-700">Total outstanding to crew: {rand(totalOwed)}</p>
+          )}
+        </div>
+      )}
+      {data && data.summary.length === 0 && activeCrew.length > 0 && (
+        <p className="text-xs text-forest-400">No crew days logged yet. Tap days as the work happens.</p>
+      )}
+    </Section>
+  );
+}
+
+// Manage the crew roster: names, phones, default daily rates, active state.
+function CrewManager({ crew, onChanged }: { crew: Crew[]; onChanged: () => void }) {
+  const [form, setForm] = useState({ name: '', phone: '', defaultDailyRate: '' });
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const up = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const add = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    try {
+      await api('/api/workers', {
+        method: 'POST',
+        body: { name: form.name, phone: form.phone, defaultDailyRate: Number(form.defaultDailyRate) || 0 },
+      });
+      setForm({ name: '', phone: '', defaultDailyRate: '' });
+      onChanged();
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : 'Failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const patch = async (id: number, body: Record<string, unknown>) => {
+    try {
+      await api(`/api/workers/${id}`, { method: 'PUT', body });
+      onChanged();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed');
+    }
+  };
+
+  const editRate = (c: Crew) => {
+    const v = window.prompt(`Default daily rate for ${c.name} (R)`, String(c.default_daily_rate));
+    if (v != null) patch(c.id, { defaultDailyRate: Number(v) });
+  };
+  const editPhone = (c: Crew) => {
+    const v = window.prompt(`Phone for ${c.name} (for WhatsApp receipts)`, c.phone || '');
+    if (v != null) patch(c.id, { phone: v });
+  };
+
+  return (
+    <div className="grid gap-6 md:grid-cols-2">
+      <form onSubmit={add} className="h-fit rounded-2xl bg-white p-6 ring-1 ring-forest-100">
+        <h2 className="mb-3 font-display text-lg font-semibold text-forest-900">Add crew member</h2>
+        {msg && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{msg}</div>}
+        <div className="space-y-2">
+          <input className={inputClass} placeholder="Name" value={form.name} onChange={(e) => up('name', e.target.value)} required />
+          <input className={inputClass} placeholder="Phone (e.g. 083 654 8048)" value={form.phone} onChange={(e) => up('phone', e.target.value)} />
+          <input className={inputClass} placeholder="Default daily rate (R)" value={form.defaultDailyRate} onChange={(e) => up('defaultDailyRate', e.target.value)} />
+        </div>
+        <button disabled={busy} className="mt-4 w-full rounded-lg bg-forest-900 py-2 text-sm font-semibold text-white hover:bg-forest-800 disabled:opacity-60">
+          {busy ? 'Adding…' : 'Add crew member'}
+        </button>
+        <p className="mt-2 text-xs text-forest-400">
+          Crew are paid a daily rate and don&apos;t need a login. Their default rate auto-fills when you log a job day.
+        </p>
+      </form>
+
+      <div>
+        <h2 className="mb-3 font-display text-lg font-semibold text-forest-900">Crew roster ({crew.length})</h2>
+        {crew.length === 0 && <p className="text-sm text-forest-500">No crew yet.</p>}
+        <div className="space-y-2">
+          {crew.map((c) => (
+            <div key={c.id} className={`rounded-xl bg-white p-4 ring-1 ring-forest-100 ${c.active ? '' : 'opacity-60'}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-forest-900">
+                    {c.name} {!c.active && <span className="text-xs font-normal text-forest-400">(inactive)</span>}
+                  </p>
+                  <button onClick={() => editPhone(c)} className="text-xs text-forest-500 hover:underline">
+                    {c.phone || '+ add phone'}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => editRate(c)} className="rounded-full bg-forest-50 px-3 py-1 text-xs font-semibold text-forest-700 hover:bg-forest-100">
+                    {rand(c.default_daily_rate)}/day
+                  </button>
+                  <button
+                    onClick={() => patch(c.id, { active: !c.active })}
+                    className="text-xs font-semibold text-forest-400 hover:text-forest-700 hover:underline"
+                  >
+                    {c.active ? 'Deactivate' : 'Reactivate'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
