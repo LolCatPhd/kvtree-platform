@@ -268,6 +268,79 @@ feel free to explore. Thank you! 🌳
 ---
 ---
 
+# 📧 Part 2 — Email setup (Resend)
+
+This is separate from WhatsApp. It lets the website **email** customers their
+quotes, invoices and receipts (with the PDF attached).
+
+We use a service called **Resend**. (We can't use normal email/SMTP because our
+hosting provider blocks it — Resend sends over the web instead, which works.)
+
+The **free plan is plenty** for us to start (about 3,000 emails a month).
+
+You'll need to be able to add a few **DNS records** for the **kvtree.co.za**
+domain — this is how email providers confirm we're allowed to send as
+`@kvtree.co.za`. If you're not sure who controls the domain's DNS, **tell me** —
+I can either do this part for you (if you give me access) or send the exact
+records to whoever manages the domain.
+
+### Step 1 — Create a Resend account
+
+1. In your phone browser go to **https://resend.com** → **Sign up**.
+2. Sign up with **leslie.strydom@gmail.com** (or "Continue with Google").
+3. Confirm your email if asked.
+
+### Step 2 — Add the kvtree.co.za domain
+
+1. In the Resend dashboard, open **Domains** (left menu) → **Add Domain**.
+2. Type **kvtree.co.za** and add it.
+3. Resend now shows a list of **DNS records** (a few **TXT** records and usually
+   one **MX** record). **Don't close this page** — you (or I) need to copy these
+   into the domain's DNS settings.
+
+### Step 3 — Add those DNS records
+
+- If **you** manage the domain (e.g. at your domain registrar or in Netlify's
+  DNS), add each record Resend listed — copy the **Type**, **Name/Host** and
+  **Value** exactly. Leave TTL on default.
+- If you're **not sure**, take a screenshot of the records and send them to me —
+  I'll handle it or forward them to the right person.
+
+### Step 4 — Verify
+
+1. Back in Resend, tap **Verify** on the domain.
+2. DNS can take anywhere from a few minutes to a couple of hours to go live. If
+   it says "pending", wait a bit and tap **Verify** again.
+3. When the domain shows **Verified** ✅, you're ready for the API key.
+
+> 💡 We can actually start **testing** before the domain is verified — Resend
+> lets us send to your own address using their sandbox. Verification is what
+> lets us email **customers** at their own addresses.
+
+### Step 5 — Create an API key (and send it to me)
+
+1. In Resend, open **API Keys** (left menu) → **Create API Key**.
+2. Name it **KV Tree Website**, permission **Sending access** (full access is
+   fine too), and **Create**.
+3. **Copy the key immediately** — it starts with `re_…` and is shown only once.
+4. **Send it to me securely** — same rule as the WhatsApp token: split it across
+   two channels (half by WhatsApp, half by email) or read it to me on a call.
+   Don't post it publicly.
+
+That's all I need for email — I plug the key in and set the "from" address to
+something like **no-reply@kvtree.co.za**, then send a test. ✅
+
+### Email checklist
+
+- [ ] Step 1 — Resend account created
+- [ ] Step 2 — kvtree.co.za added
+- [ ] Step 3 — DNS records added (by you or me)
+- [ ] Step 4 — domain shows **Verified**
+- [ ] Step 5 — API key created & sent to me securely
+
+---
+---
+
 # 🔧 Technical appendix (for the developer — not the admin)
 
 This is what the codes map to in our codebase once they arrive.
