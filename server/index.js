@@ -230,6 +230,15 @@ app.get('/api/users', authRequired, requireRole('admin'), asyncHandler(async (re
 // ---------------------------------------------------------------------------
 // Notifications helper
 // ---------------------------------------------------------------------------
+// Move a lead forward in the pipeline only — never backwards. Taking an action
+// (e.g. re-quoting a job that's already Booked) should not drag its Kanban card
+// back to an earlier column.
+async function advanceLeadStatus(leadId, currentStatus, target) {
+  if (LEAD_STATUSES.indexOf(target) > LEAD_STATUSES.indexOf(currentStatus)) {
+    await pool.query('UPDATE leads SET status = $2, updated_at = now() WHERE id = $1', [leadId, target]);
+  }
+}
+
 async function notify({ email, phone, subject, message, attachments, mediaUrl }) {
   const tasks = [];
   if (email) tasks.push(sendEmail({ to: email, subject, text: message, html: `<p>${message}</p>`, attachments }).catch((e) => console.error('email error', e.message)));
@@ -358,7 +367,7 @@ app.post('/api/quotes', authRequired, requireRole('admin', 'worker'), asyncHandl
   quote = updated.rows[0];
 
   // Advance the lead and notify the client with the quote link.
-  await pool.query("UPDATE leads SET status = 'Quoted', updated_at = now() WHERE id = $1", [lid]);
+  await advanceLeadStatus(lid, lead.status, 'Quoted');
   // Fire-and-forget — don't block the response on email/WhatsApp delivery.
   notify({
     email: lead.email,
@@ -561,7 +570,7 @@ app.post('/api/invoices', authRequired, requireRole('admin', 'worker'), asyncHan
   const { localPath, key } = await generateInvoicePdf({ invoice, lead });
   const pdfUrl = await storage.publish(localPath, key, 'application/pdf');
   invoice = (await pool.query('UPDATE invoices SET pdf_path = $2 WHERE id = $1 RETURNING *', [invoice.id, pdfUrl])).rows[0];
-  await pool.query("UPDATE leads SET status = 'Invoiced', updated_at = now() WHERE id = $1", [lid]);
+  await advanceLeadStatus(lid, lead.status, 'Invoiced');
 
   // Fire-and-forget — don't block the response on email/WhatsApp delivery.
   notify({
@@ -613,6 +622,36 @@ app.get('/api/invoices/:id', authRequired, asyncHandler(async (req, res) => {
   if (error === 404) return res.status(404).json({ error: 'Invoice not found' });
   if (error === 403) return res.status(403).json({ error: 'Insufficient permissions' });
   res.json(withPdfUrl(invoice, 'invoices'));
+}));
+
+// Staff: manually set an invoice's payment status (e.g. mark Paid on EFT
+// received, or revert an error). Complements the automatic PayFast update.
+app.put('/api/invoices/:id/status', authRequired, requireRole('admin', 'worker'), asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Invalid id' });
+  const { status, reference } = req.body;
+  if (!['Paid', 'Unpaid'].includes(status)) {
+    return res.status(400).json({ error: "status must be 'Paid' or 'Unpaid'" });
+  }
+  const existing = await pool.query('SELECT id FROM invoices WHERE id = $1', [id]);
+  if (!existing.rows.length) return res.status(404).json({ error: 'Invoice not found' });
+
+  const { rows } =
+    status === 'Paid'
+      ? await pool.query(
+          `UPDATE invoices SET status = 'Paid', payment_reference = $2,
+             paid_at = COALESCE(paid_at, now()), updated_at = now()
+           WHERE id = $1 RETURNING *`,
+          [id, (reference && String(reference).trim()) || 'Manual / EFT']
+        )
+      : await pool.query(
+          `UPDATE invoices SET status = 'Unpaid', payment_reference = NULL,
+             paid_at = NULL, updated_at = now()
+           WHERE id = $1 RETURNING *`,
+          [id]
+        );
+  console.log(`💰 Invoice #${id} manually marked ${status} by ${req.user.email}`);
+  res.json(withPdfUrl(rows[0], 'invoices'));
 }));
 
 // Owner: initiate online payment. Returns PayFast form fields to POST.

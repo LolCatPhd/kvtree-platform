@@ -534,6 +534,7 @@ function Billing() {
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [view, setView] = useState<'quotes' | 'invoices'>('quotes');
   const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<number | null>(null);
 
   useEffect(() => {
     Promise.all([api<QuoteRow[]>('/api/quotes'), api<InvoiceRow[]>('/api/invoices')])
@@ -544,6 +545,20 @@ function Billing() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  const setInvoiceStatus = async (id: number, status: 'Paid' | 'Unpaid') => {
+    setBusyId(id);
+    try {
+      const updated = await api<InvoiceRow>(`/api/invoices/${id}/status`, { method: 'PUT', body: { status } });
+      setInvoices((prev) => prev.map((i) => (i.id === id ? { ...i, ...updated } : i)));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to update payment status');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const colCount = view === 'invoices' ? 8 : 7;
 
   const quotesTotal = quotes.reduce((s, q) => s + Number(q.price || 0), 0);
   const invoicesTotal = invoices.reduce((s, i) => s + Number(i.amount || 0), 0);
@@ -591,14 +606,15 @@ function Billing() {
               <th className="px-4 py-3 font-semibold">Status</th>
               <th className="px-4 py-3 font-semibold">Date</th>
               <th className="px-4 py-3 font-semibold">PDF</th>
+              {view === 'invoices' && <th className="px-4 py-3 font-semibold">Payment</th>}
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-forest-400">Loading…</td></tr>
+              <tr><td colSpan={colCount} className="px-4 py-10 text-center text-forest-400">Loading…</td></tr>
             )}
             {!loading && rows.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-forest-400">No {view} yet.</td></tr>
+              <tr><td colSpan={colCount} className="px-4 py-10 text-center text-forest-400">No {view} yet.</td></tr>
             )}
             {rows.map((r) => {
               const amount = view === 'quotes' ? (r as QuoteRow).price : (r as InvoiceRow).amount;
@@ -624,6 +640,27 @@ function Billing() {
                       <span className="text-forest-300">—</span>
                     )}
                   </td>
+                  {view === 'invoices' && (
+                    <td className="px-4 py-3">
+                      {r.status === 'Paid' ? (
+                        <button
+                          disabled={busyId === r.id}
+                          onClick={() => setInvoiceStatus(r.id, 'Unpaid')}
+                          className="text-xs font-semibold text-forest-400 hover:text-forest-700 hover:underline disabled:opacity-50"
+                        >
+                          Mark unpaid
+                        </button>
+                      ) : (
+                        <button
+                          disabled={busyId === r.id}
+                          onClick={() => setInvoiceStatus(r.id, 'Paid')}
+                          className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                        >
+                          {busyId === r.id ? '…' : 'Mark paid (EFT)'}
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               );
             })}
