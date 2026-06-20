@@ -364,7 +364,7 @@ app.post('/api/quotes', authRequired, requireRole('admin', 'worker'), asyncHandl
     email: lead.email,
     phone: lead.phone,
     subject: `Your KV Tree quotation #${quote.id}`,
-    message: `Hi ${lead.name || 'there'}, your quotation for "${lead.service}" is ready: R ${Number(price || 0).toFixed(2)}. View it here: ${pdfLink('quotes', quote.id)}`,
+    message: `Hi ${lead.name || 'there'}, your quotation for "${lead.service}" is ready: R ${Number(price || 0).toFixed(2)}. The quote is attached as a PDF. Thank you for choosing KV Tree.`,
     attachments: [{ filename: `quote-${quote.id}.pdf`, path: localPath }],
     mediaUrl: pdfLink('quotes', quote.id),
   }).catch((e) => console.error('notify error', e.message));
@@ -568,7 +568,7 @@ app.post('/api/invoices', authRequired, requireRole('admin', 'worker'), asyncHan
     email: lead.email,
     phone: lead.phone,
     subject: `Invoice #${invoice.id} from KV Tree`,
-    message: `Hi ${lead.name || 'there'}, your invoice for "${lead.service}" of R ${Number(amount).toFixed(2)} is ready. View it here: ${pdfLink('invoices', invoice.id)} — or log in to your account to pay it online.`,
+    message: `Hi ${lead.name || 'there'}, your invoice for "${lead.service}" of R ${Number(amount).toFixed(2)} is attached as a PDF. Log in to your account to pay it online. Thank you for choosing KV Tree.`,
     attachments: [{ filename: `invoice-${invoice.id}.pdf`, path: localPath }],
     mediaUrl: pdfLink('invoices', invoice.id),
   }).catch((e) => console.error('notify error', e.message));
