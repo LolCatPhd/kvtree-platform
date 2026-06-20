@@ -37,7 +37,7 @@ function normalize(number) {
   return e164 ? `whatsapp:${e164}` : null;
 }
 
-async function sendWhatsApp({ to, body }) {
+async function sendWhatsApp({ to, body, mediaUrl }) {
   const dest = normalize(to);
   if (!enabled || !dest) {
     console.log(`📱 [whatsapp skipped] to=${to} body="${body?.slice(0, 60)}..."`);
@@ -45,6 +45,9 @@ async function sendWhatsApp({ to, body }) {
   }
   const url = `https://api.twilio.com/2010-04-01/Accounts/${SID}/Messages.json`;
   const params = new URLSearchParams({ From: FROM, To: dest, Body: body });
+  // Attach a document/image (e.g. the quote/invoice PDF). Twilio fetches the
+  // URL server-side, so it must be publicly reachable (our /files links are).
+  if (mediaUrl) params.append('MediaUrl', mediaUrl);
   const res = await fetch(url, {
     method: 'POST',
     headers: {

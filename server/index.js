@@ -230,10 +230,10 @@ app.get('/api/users', authRequired, requireRole('admin'), asyncHandler(async (re
 // ---------------------------------------------------------------------------
 // Notifications helper
 // ---------------------------------------------------------------------------
-async function notify({ email, phone, subject, message, attachments }) {
+async function notify({ email, phone, subject, message, attachments, mediaUrl }) {
   const tasks = [];
   if (email) tasks.push(sendEmail({ to: email, subject, text: message, html: `<p>${message}</p>`, attachments }).catch((e) => console.error('email error', e.message)));
-  if (phone) tasks.push(sendWhatsApp({ to: phone, body: message }).catch((e) => console.error('whatsapp error', e.message)));
+  if (phone) tasks.push(sendWhatsApp({ to: phone, body: message, mediaUrl }).catch((e) => console.error('whatsapp error', e.message)));
   await Promise.all(tasks);
 }
 
@@ -366,6 +366,7 @@ app.post('/api/quotes', authRequired, requireRole('admin', 'worker'), asyncHandl
     subject: `Your KV Tree quotation #${quote.id}`,
     message: `Hi ${lead.name || 'there'}, your quotation for "${lead.service}" is ready: R ${Number(price || 0).toFixed(2)}. View it here: ${pdfLink('quotes', quote.id)}`,
     attachments: [{ filename: `quote-${quote.id}.pdf`, path: localPath }],
+    mediaUrl: pdfLink('quotes', quote.id),
   }).catch((e) => console.error('notify error', e.message));
 
   res.status(201).json(withPdfUrl(quote, 'quotes'));
@@ -569,6 +570,7 @@ app.post('/api/invoices', authRequired, requireRole('admin', 'worker'), asyncHan
     subject: `Invoice #${invoice.id} from KV Tree`,
     message: `Hi ${lead.name || 'there'}, your invoice for "${lead.service}" of R ${Number(amount).toFixed(2)} is ready. View it here: ${pdfLink('invoices', invoice.id)} — or log in to your account to pay it online.`,
     attachments: [{ filename: `invoice-${invoice.id}.pdf`, path: localPath }],
+    mediaUrl: pdfLink('invoices', invoice.id),
   }).catch((e) => console.error('notify error', e.message));
 
   res.status(201).json(withPdfUrl(invoice, 'invoices'));
