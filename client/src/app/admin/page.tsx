@@ -501,7 +501,7 @@ interface QuoteRow {
   lead_service: string | null;
   price: string | number | null;
   status: string;
-  pdf_path: string | null;
+  pdf_url: string | null;
   created_at: string;
 }
 interface InvoiceRow {
@@ -511,7 +511,7 @@ interface InvoiceRow {
   lead_service: string | null;
   amount: string | number;
   status: string;
-  pdf_path: string | null;
+  pdf_url: string | null;
   created_at: string;
 }
 
@@ -611,9 +611,9 @@ function Billing() {
                   <td className="px-4 py-3"><StatusPill status={r.status} /></td>
                   <td className="px-4 py-3 text-forest-500">{shortDate(r.created_at)}</td>
                   <td className="px-4 py-3">
-                    {r.pdf_path ? (
+                    {r.pdf_url ? (
                       <a
-                        href={apiPath(r.pdf_path)}
+                        href={apiPath(r.pdf_url)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="font-semibold text-forest-700 hover:underline"

@@ -5,7 +5,7 @@
 // Railway — configure S3 for production so photos and PDFs survive redeploys.
 const fs = require('fs');
 const path = require('path');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 
 const BUCKET = process.env.S3_BUCKET;
 const REGION = process.env.S3_REGION || 'us-east-1';
@@ -69,4 +69,23 @@ async function publish(localPath, key, contentType) {
   return `${PUBLIC_URL}/uploads/${key}`;
 }
 
-module.exports = { storageEnabled: enabled, save, publish, UPLOAD_DIR };
+const CONTENT_TYPES = { '.pdf': 'application/pdf', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
+
+// Open a stored object for streaming back through the API (so files can be
+// served even when the bucket isn't publicly readable). Resolves to
+// { stream, contentType, contentLength } or throws if the object is missing.
+async function getStream(key) {
+  if (enabled) {
+    const out = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+    return { stream: out.Body, contentType: out.ContentType, contentLength: out.ContentLength };
+  }
+  const filepath = path.join(UPLOAD_DIR, key);
+  const stat = fs.statSync(filepath); // throws ENOENT if absent → caller 404s
+  return {
+    stream: fs.createReadStream(filepath),
+    contentType: CONTENT_TYPES[path.extname(key).toLowerCase()] || 'application/octet-stream',
+    contentLength: stat.size,
+  };
+}
+
+module.exports = { storageEnabled: enabled, save, publish, getStream, UPLOAD_DIR };
