@@ -52,7 +52,7 @@ export function localBusinessJsonLd() {
     url: SITE_URL,
     telephone: BUSINESS.phoneE164,
     email: BUSINESS.email,
-    image: `${SITE_URL}/og.jpg`,
+    image: `${SITE_URL}/opengraph-image`,
     address: {
       '@type': 'PostalAddress',
       streetAddress: BUSINESS.streetAddress,
