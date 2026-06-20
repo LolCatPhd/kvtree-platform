@@ -105,103 +105,66 @@ answers. With the right sequence the cutover is effectively zero-downtime:
 
 ---
 
-## ⚠️ CRITICAL: xneelo switches your nameservers automatically
+## ⚠️ CRITICAL: xneelo switches your nameservers automatically — and you can't pre-stage the zone
 
 xneelo's own transfer page states:
 
 > "When transferring your domain to xneelo, your name servers will
 > **automatically switch to our default xneelo name servers**."
 
-This is the single biggest risk to avoid the site (and email) going dark.
-Today the domain's DNS lives on **KenesisPro** nameservers
-(`dns1/dns2.kenesispro.com`), and those nameservers hold all the live records:
+The previous version of this guide said "mirror the DNS zone into xneelo *before* the transfer." That is **wrong** — xneelo only gives you access to the DNS zone tool *after* the domain lands on your account. So there is no way to pre-populate the zone before the NS switch happens. You need a different approach.
+
+### Why this matters
+
+Today the domain's DNS lives on **KenesisPro** nameservers (`dns1/dns2.kenesispro.com`), and those nameservers hold all the live records:
 
 | Record | Current value | What it serves |
 |---|---|---|
 | `A` (apex + www) | `165.73.140.19` | The **old website** (CyberAdvert hosting) |
 | `MX` | `mail1/mail2.cyberadvert.co.za` | **Email** for `@kvtree.co.za` |
 
-When the transfer completes and nameservers flip to xneelo, **xneelo's DNS will
-be empty/default** — so unless you have **recreated those records in xneelo's
-DNS first**, the website goes down AND email stops. This is the trap.
+When the transfer completes and nameservers auto-flip to xneelo, **xneelo's zone will be empty** — site goes dark and email stops. This is the problem.
 
-### Should the nameservers stay as the original (KenesisPro)?
+### The two real options
 
-You have two valid choices:
+**Option A — Transfer with custom nameservers (keep KenesisPro NS)**
 
-**Option A (recommended) — let nameservers switch to xneelo, but mirror the DNS
-zone first.** Before/at transfer, rebuild the exact same records in xneelo's DNS
-tool. Then when NS flips, xneelo serves identical records → **nothing goes
-dark**, and you now control DNS. This is the clean end state.
+xneelo says: *"Need to transfer your domain with custom name servers? Launch Live Chat for manual assistance."*
 
-**Option B — keep custom nameservers (KenesisPro) during transfer.** xneelo's
-note says: *"Need to transfer your domain with custom name servers? Launch Live
-Chat for manual assistance."* This keeps DNS on KenesisPro so nothing changes —
-**but** DNS control stays with KenesisPro, which defeats the goal of taking
-control. Only use this as a temporary measure.
+This means you can ask xneelo to NOT auto-switch to their NS when the transfer completes. DNS stays on KenesisPro throughout — **zero downtime**, email and old site keep working exactly as they do today. You then create the zone in xneelo's DNS tool at your own pace, verify every record, and only switch NS when you're ready.
 
-👉 **Go with Option A.** Here's how:
+> This is the safest option for this specific scenario.
+>
+> **What to do:** Before or immediately after requesting the transfer at xneelo, open their Live Chat and say: *"I am transferring kvtree.co.za to xneelo as registrar only, with no hosting. I need to keep my current custom nameservers (dns1.kenesispro.com / dns2.kenesispro.com) and NOT switch to xneelo's default NS during the transfer. Please assist."*
 
-### How to mirror the DNS zone into xneelo (Option A)
+**Option B — Cloudflare DNS (fully decouples DNS from registrar)**
 
-1. **Get the full current zone file** from CyberAdvert/KenesisPro — ask them to
-   **export the DNS zone** for `kvtree.co.za`. This guarantees you don't miss
-   any records (there may be SPF/TXT, autodiscover, or subdomain records beyond
-   the obvious ones).
-2. If they won't provide it, reconstruct from what's known and double-check with
-   a DNS lookup tool. Known records to recreate at minimum:
-   ```
-   A      @      165.73.140.19
-   A      www    165.73.140.19
-   MX     @      mail1.cyberadvert.co.za   (priority 10)
-   MX     @      mail2.cyberadvert.co.za   (priority 20)
-   ```
-   Plus any **TXT/SPF** record (e.g. `v=spf1 ...`) — important for email
-   deliverability.
-3. In xneelo, **set up a hosting package and use the DNS tool to import the zone
-   file** (xneelo's page explicitly offers: *"import your current zone file
-   using our DNS tool"*). Recreate every record exactly.
-4. **Only then** complete the transfer / let nameservers switch. Because xneelo's
-   DNS already mirrors the old setup, the website still points at the old host
-   and email still flows to CyberAdvert — **zero downtime**.
-5. Later, as a **separate, controlled step**, change the `A`/`CNAME` record in
-   xneelo's DNS to point at **Netlify** (the actual old→new site cutover, with
-   the 301 redirects from Steps 1–4 above). And change `MX` to xneelo when you
-   migrate email (see the email migration guide).
+Cloudflare (free) lets you create a zone for a domain *you don't own yet* and gives you two NS addresses. You change NS to Cloudflare at CyberAdvert **before** the transfer, then xneelo receives a domain whose NS already points to Cloudflare — they're welcome to keep it that way. DNS never moves; zone is always on Cloudflare regardless of who the registrar is.
 
-### Other transfer-page notes worth knowing
+> Best long-term setup (fast DNS, free, independent). More moving parts upfront.
 
-- **Approval email:** for `.za` domains the confirmation comes from
-  **`srszaticket@registry.net.za`** and is sent to the **domain registrant's
-  email address**. ⚠️ That address is currently **hidden/possibly the old
-  developer's** (per the WHOIS) — so you may need CyberAdvert to update the
-  registrant email to yours first, or that approval email won't reach you.
-- **Timing rule:** `.za` (ccTLD) transfers need **7+ days** since registration
-  or last transfer. `kvtree.co.za` was registered in **2008**, so this is fine.
-- **Lock/hold:** WHOIS shows status `ok` (not locked), so no unlock step is
-  needed — but confirm it isn't put on hold during the process.
+### Note on xneelo as "registrar only"
+
+You don't need a hosting package at xneelo — domain registration and DNS management are separate services. You can transfer a domain to xneelo and manage the DNS zone there without buying hosting. Their control panel gives you a DNS editor once the domain is on your account.
 
 ---
 
-## Recommended overall sequence (revised)
+## Recommended overall sequence (revised — Option A)
 
 | Order | Action | Why |
 |---|---|---|
-| 1 | Get CyberAdvert to update the **registrant email** to yours | So the `.za` approval email actually reaches you |
-| 2 | **Export the current DNS zone** from CyberAdvert/KenesisPro | Needed to mirror it — old site/email stay live |
-| 3 | Set up xneelo hosting + **import/recreate the DNS zone** in xneelo's DNS tool | xneelo NS will be ready *before* it goes live |
-| 4 | **Initiate the transfer** and approve via the registry email | NS auto-switches to xneelo — but records already mirrored = no downtime |
-| 5 | Inventory old URLs + build redirect map | Can only do while old site is live |
-| 6 | Deploy new site to Netlify, add domain, pre-provision SSL, add `_redirects` | All ready before cutover |
-| 7 | In xneelo DNS, **lower TTL** (wait 24–48 h) | Minimises propagation window |
-| 8 | In xneelo DNS, **point `A`/`CNAME` at Netlify** | The real old→new site cutover |
-| 9 | Migrate email + flip `MX` to xneelo (separate guide) | Email moves when you're ready |
-| 10 | Keep old hosting active for a few weeks | Fallback + reference |
+| 1 | Get CyberAdvert to update the **registrant email** to yours | So the `.za` approval email reaches you |
+| 2 | **Look up all current DNS records** (MXToolbox, `dig`, or ask KenesisPro for a zone export) | Know every record before anything changes |
+| 3 | **Request the transfer at xneelo** + immediately open Live Chat to request **custom NS** (keep KenesisPro's) | Prevents xneelo auto-switching NS on arrival |
+| 4 | Approve the transfer via the registry email (`srszaticket@registry.net.za`) | Transfer completes; DNS stays on KenesisPro |
+| 5 | In xneelo's DNS editor (now available), **create the zone** and add every record from Step 2 | Zone is ready on xneelo before you ever switch to it |
+| 6 | Inventory old URLs + build redirect map | While old site is still live |
+| 7 | Deploy new site to Netlify, add domain, pre-provision SSL, add `_redirects` | All ready before cutover |
+| 8 | In xneelo DNS, **lower TTL** on A/CNAME records (wait 24–48 h) | Fast propagation when you flip |
+| 9 | **Switch NS to xneelo** (now DNS has all records) + point `A`/`CNAME` to Netlify | Controlled cutover; propagates in minutes |
+| 10 | Migrate email + flip `MX` to xneelo (separate guide) | Email moves when you're ready |
 
-> The key change from a naïve transfer: **steps 2–3 (mirror the DNS zone) must
-> happen BEFORE step 4 (the transfer)**, because xneelo wipes the nameservers to
-> its own defaults. Skip this and the site + email go dark the moment the
-> transfer completes.
+> The key change: Step 3's Live Chat request keeps DNS on KenesisPro during and after transfer, giving you time to build the xneelo zone properly (Step 5) before ever touching NS.
 
 ---
 
@@ -216,16 +179,29 @@ control. Only use this as a temporary measure.
 
 ---
 
+## Other transfer notes
+
+- **Approval email:** for `.za` domains the confirmation comes from
+  **`srszaticket@registry.net.za`** to the **domain registrant's email address**.
+  ⚠️ That address may be hidden / the old developer's (per WHOIS privacy) — ask
+  CyberAdvert to update the registrant email to Pieter's before initiating, or
+  the approval email won't reach you.
+- **Timing rule:** `.za` (ccTLD) transfers need **7+ days** since registration
+  or last transfer. `kvtree.co.za` was registered in **2008**, so this is fine.
+- **Lock/hold:** WHOIS shows status `ok` (not locked) — no unlock step needed,
+  but confirm it isn't placed on hold during the process.
+- **No hosting needed at xneelo:** You are using xneelo as registrar only.
+  Netlify hosts the site, Railway hosts the server. xneelo just holds the domain
+  and lets you manage DNS.
+
+---
+
 ## Next steps (developer tasks queued)
 
-1. **Crawl the old `www.kvtree.co.za` site** to produce the URL inventory and
-   seed the redirect map.
-2. **Build the SEO foundation** into the new site:
-   - `client/public/_redirects` — 301 redirect file (once URL list is known).
-   - `client/public/sitemap.xml` (or generated at build time).
-   - `client/public/robots.txt`.
-   - Canonical / `www` handling (Netlify primary domain setting).
-   - `LocalBusiness` JSON-LD structured data (KV Tree name, phone, service area)
-     — high value for local "near me" searches.
-   - Open Graph / Twitter meta tags — nice link previews on WhatsApp/Facebook.
-   - Per-page `<title>` and `<meta name="description">` tags.
+1. **URL inventory** — browse old site + Google `site:kvtree.co.za`, paste paths
+   here → developer generates the full `_redirects` 301 map.
+2. **SEO foundation** — already built into the new site:
+   `sitemap.xml`, `robots.txt`, `LocalBusiness` JSON-LD, OG/Twitter metadata,
+   per-page canonicals, blog route. ✅
+3. **Google Places ID** — find on Google Maps (share link → copy `ChIJ…` part)
+   → set `GOOGLE_PLACES_ID` env var on Railway → live Google reviews on homepage.
