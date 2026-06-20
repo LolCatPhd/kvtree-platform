@@ -37,7 +37,7 @@ const values = [
 ];
 
 const team = [
-  { name: "Kelvin van der Merwe", role: "Founder & Chief Arborist", photo: photos.founder, initials: "KM" },
+  { name: "Pieter Bekker", role: "Founder & Chief Arborist", photo: photos.founder, initials: "PB" },
   { name: "Thandiwe Mokoena", role: "Operations Manager", initials: "TM" },
   { name: "Jaco Botha", role: "Lead Arborist", initials: "JB" },
 ];
@@ -60,7 +60,7 @@ export default function About() {
                 known for our commitment to safety, professionalism and environmental stewardship.
               </p>
               <p>
-                Our founder, Kelvin van der Merwe, began with a passion for arboriculture and a dedication
+                Our founder, Pieter Bekker, began with a passion for arboriculture and a dedication
                 to honest, reliable service. Today we carry that legacy forward with a team of certified
                 arborists and skilled technicians who share the same values.
               </p>
@@ -77,14 +77,14 @@ export default function About() {
             <div className="relative aspect-[4/5] overflow-hidden rounded-3xl shadow-sm ring-1 ring-forest-100">
               <Image
                 src={photos.founder}
-                alt="Kelvin van der Merwe, founder of KV Tree, in a branded polo shirt"
+                alt="Pieter Bekker, founder of KV Tree"
                 fill
                 sizes="(max-width: 1024px) 100vw, 50vw"
                 className="object-cover"
               />
             </div>
             <div className="absolute -bottom-6 left-6 rounded-2xl bg-forest-900 px-6 py-4 text-white shadow-xl">
-              <p className="font-display text-lg font-semibold">Kelvin van der Merwe</p>
+              <p className="font-display text-lg font-semibold">Pieter Bekker</p>
               <p className="text-sm text-forest-200">Founder &amp; Chief Arborist</p>
             </div>
           </div>

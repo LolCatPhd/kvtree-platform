@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { services } from "@/lib/services";
 import { photos } from "@/lib/photos";
+import { getGoogleReviews, googleMapsReviewUrl } from "@/lib/reviews";
 import {
   ArrowRightIcon,
   CheckIcon,
@@ -13,6 +14,8 @@ import {
   StarIcon,
   PhoneIcon,
 } from "@/components/icons";
+
+export const revalidate = 86400;
 
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
@@ -75,7 +78,8 @@ const testimonials = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const googleData = await getGoogleReviews();
   return (
     <>
       {/* ---------------------------------------------------------------- */}
@@ -318,32 +322,87 @@ export default function Home() {
       </section>
 
       {/* ---------------------------------------------------------------- */}
-      {/* Testimonials                                                      */}
+      {/* Reviews / Testimonials                                            */}
       {/* ---------------------------------------------------------------- */}
       <section className="bg-sand-50 py-20 sm:py-24">
         <div className="wrap">
           <div className="mx-auto max-w-2xl text-center">
-            <span className="eyebrow">Kind words</span>
-            <h2 className="mt-3 font-display text-3xl font-semibold text-forest-900 sm:text-4xl">
-              Homeowners across the East Rand
-            </h2>
+            <span className="eyebrow">What customers say</span>
+            {googleData ? (
+              <h2 className="mt-3 font-display text-3xl font-semibold text-forest-900 sm:text-4xl">
+                Rated{" "}
+                <span className="text-forest-700">{googleData.rating.toFixed(1)} / 5</span>
+                {" "}on Google
+              </h2>
+            ) : (
+              <h2 className="mt-3 font-display text-3xl font-semibold text-forest-900 sm:text-4xl">
+                Homeowners across the East Rand
+              </h2>
+            )}
+            {googleData && (
+              <p className="mt-2 text-forest-500">
+                Based on{" "}
+                <a
+                  href={googleMapsReviewUrl(googleData.place_id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-forest-700 underline hover:text-forest-900"
+                >
+                  {googleData.user_ratings_total} Google reviews
+                </a>
+              </p>
+            )}
           </div>
           <div className="mt-14 grid gap-6 md:grid-cols-3">
-            {testimonials.map((t) => (
-              <figure key={t.name} className="flex flex-col rounded-2xl bg-white p-7 shadow-sm ring-1 ring-forest-100">
-                <div className="flex gap-1 text-lime-accent">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <StarIcon key={i} className="h-4 w-4" />
-                  ))}
-                </div>
-                <blockquote className="mt-4 flex-1 text-forest-700">&ldquo;{t.quote}&rdquo;</blockquote>
-                <figcaption className="mt-5 border-t border-forest-100 pt-4">
-                  <span className="font-semibold text-forest-900">{t.name}</span>
-                  <span className="block text-sm text-forest-500">{t.place}</span>
-                </figcaption>
-              </figure>
-            ))}
+            {googleData
+              ? googleData.reviews.slice(0, 3).map((r) => (
+                  <figure
+                    key={r.author_name}
+                    className="flex flex-col rounded-2xl bg-white p-7 shadow-sm ring-1 ring-forest-100"
+                  >
+                    <div className="flex gap-1 text-lime-accent">
+                      {Array.from({ length: r.rating }).map((_, i) => (
+                        <StarIcon key={i} className="h-4 w-4" />
+                      ))}
+                    </div>
+                    <blockquote className="mt-4 flex-1 text-forest-700">
+                      &ldquo;{r.text}&rdquo;
+                    </blockquote>
+                    <figcaption className="mt-5 border-t border-forest-100 pt-4">
+                      <span className="font-semibold text-forest-900">{r.author_name}</span>
+                      <span className="block text-sm text-forest-500">
+                        {r.relative_time_description}
+                      </span>
+                    </figcaption>
+                  </figure>
+                ))
+              : testimonials.map((t) => (
+                  <figure key={t.name} className="flex flex-col rounded-2xl bg-white p-7 shadow-sm ring-1 ring-forest-100">
+                    <div className="flex gap-1 text-lime-accent">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <StarIcon key={i} className="h-4 w-4" />
+                      ))}
+                    </div>
+                    <blockquote className="mt-4 flex-1 text-forest-700">&ldquo;{t.quote}&rdquo;</blockquote>
+                    <figcaption className="mt-5 border-t border-forest-100 pt-4">
+                      <span className="font-semibold text-forest-900">{t.name}</span>
+                      <span className="block text-sm text-forest-500">{t.place}</span>
+                    </figcaption>
+                  </figure>
+                ))}
           </div>
+          {googleData && (
+            <div className="mt-10 text-center">
+              <a
+                href={googleMapsReviewUrl(googleData.place_id)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-full border border-forest-200 px-6 py-2.5 text-sm font-semibold text-forest-800 transition hover:bg-forest-50"
+              >
+                Read all reviews on Google <ArrowRightIcon className="h-4 w-4" />
+              </a>
+            </div>
+          )}
         </div>
       </section>
 
