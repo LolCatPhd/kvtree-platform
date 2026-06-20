@@ -51,7 +51,21 @@ const upload = multer({
 const safeName = (name) => name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
 
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me';
+
+// PDFs are served through the API (see GET /files/...) so they work even when
+// the storage bucket isn't publicly readable. A short HMAC token keeps the
+// predictable keys from being trivially enumerable.
+const FILE_FOLDERS = { quotes: 'quote', invoices: 'invoice' };
+const fileToken = (key) => crypto.createHmac('sha256', JWT_SECRET).update(key).digest('hex').slice(0, 24);
+const pdfKey = (folder, id) => `${folder}/${FILE_FOLDERS[folder]}-${id}.pdf`;
+const pdfLink = (folder, id) => {
+  const key = pdfKey(folder, id);
+  return `${PUBLIC_URL}/files/${key}?t=${fileToken(key)}`;
+};
+// Add a ready-to-open pdf_url to a quote/invoice row when it has a PDF.
+const withPdfUrl = (row, folder) => ({ ...row, pdf_url: row.pdf_path ? pdfLink(folder, row.id) : null });
 
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const parseId = (v) => {
@@ -93,6 +107,30 @@ app.post('/api/uploads', upload.array('photos', 10), asyncHandler(async (req, re
     })
   );
   res.status(201).json({ urls });
+}));
+
+// Stream a stored PDF through the API so links work without a public bucket.
+// Validated by the HMAC token issued alongside the link.
+app.get('/files/:folder/:name', asyncHandler(async (req, res) => {
+  const { folder, name } = req.params;
+  if (!FILE_FOLDERS[folder] || !/^[\w.\-]+\.pdf$/.test(name)) {
+    return res.status(404).send('Not found');
+  }
+  const key = `${folder}/${name}`;
+  if (req.query.t !== fileToken(key)) return res.status(403).send('Invalid or expired link');
+  let obj;
+  try {
+    obj = await storage.getStream(key);
+  } catch (e) {
+    if (e?.name === 'NoSuchKey' || e?.code === 'ENOENT') return res.status(404).send('File not found');
+    throw e;
+  }
+  res.setHeader('Content-Type', obj.contentType || 'application/pdf');
+  if (obj.contentLength != null) res.setHeader('Content-Length', obj.contentLength);
+  res.setHeader('Content-Disposition', `inline; filename="${name}"`);
+  res.setHeader('Cache-Control', 'private, max-age=300');
+  obj.stream.on('error', () => res.destroy());
+  obj.stream.pipe(res);
 }));
 
 // ---------------------------------------------------------------------------
@@ -326,11 +364,11 @@ app.post('/api/quotes', authRequired, requireRole('admin', 'worker'), asyncHandl
     email: lead.email,
     phone: lead.phone,
     subject: `Your KV Tree quotation #${quote.id}`,
-    message: `Hi ${lead.name || 'there'}, your quotation for "${lead.service}" is ready: R ${Number(price || 0).toFixed(2)}. View it here: ${pdfUrl}`,
+    message: `Hi ${lead.name || 'there'}, your quotation for "${lead.service}" is ready: R ${Number(price || 0).toFixed(2)}. View it here: ${pdfLink('quotes', quote.id)}`,
     attachments: [{ filename: `quote-${quote.id}.pdf`, path: localPath }],
   }).catch((e) => console.error('notify error', e.message));
 
-  res.status(201).json(quote);
+  res.status(201).json(withPdfUrl(quote, 'quotes'));
 }));
 
 app.get('/api/quotes', authRequired, asyncHandler(async (req, res) => {
@@ -347,7 +385,7 @@ app.get('/api/quotes', authRequired, asyncHandler(async (req, res) => {
            FROM quotes q LEFT JOIN leads l ON l.id = q.lead_id
            ORDER BY q.created_at DESC`
         );
-    return res.json(rows);
+    return res.json(rows.map((r) => withPdfUrl(r, 'quotes')));
   }
   // Clients: quotes attached to their leads only.
   const { rows } = await pool.query(
@@ -355,7 +393,7 @@ app.get('/api/quotes', authRequired, asyncHandler(async (req, res) => {
      WHERE l.client_id = $1 OR l.email = $2 ORDER BY q.created_at DESC`,
     [req.user.id, req.user.email]
   );
-  res.json(rows);
+  res.json(rows.map((r) => withPdfUrl(r, 'quotes')));
 }));
 
 app.get('/api/quotes/:id', authRequired, asyncHandler(async (req, res) => {
@@ -371,7 +409,7 @@ app.get('/api/quotes/:id', authRequired, asyncHandler(async (req, res) => {
   if (!isStaff(req.user) && quote.client_id !== req.user.id && quote.lead_email !== req.user.email) {
     return res.status(403).json({ error: 'Insufficient permissions' });
   }
-  res.json(quote);
+  res.json(withPdfUrl(quote, 'quotes'));
 }));
 
 // Client accepts/rejects; staff edits price/details.
@@ -529,11 +567,11 @@ app.post('/api/invoices', authRequired, requireRole('admin', 'worker'), asyncHan
     email: lead.email,
     phone: lead.phone,
     subject: `Invoice #${invoice.id} from KV Tree`,
-    message: `Hi ${lead.name || 'there'}, your invoice for "${lead.service}" of R ${Number(amount).toFixed(2)} is ready. View it here: ${pdfUrl} — or log in to your account to pay it online.`,
+    message: `Hi ${lead.name || 'there'}, your invoice for "${lead.service}" of R ${Number(amount).toFixed(2)} is ready. View it here: ${pdfLink('invoices', invoice.id)} — or log in to your account to pay it online.`,
     attachments: [{ filename: `invoice-${invoice.id}.pdf`, path: localPath }],
   }).catch((e) => console.error('notify error', e.message));
 
-  res.status(201).json(invoice);
+  res.status(201).json(withPdfUrl(invoice, 'invoices'));
 }));
 
 app.get('/api/invoices', authRequired, asyncHandler(async (req, res) => {
@@ -543,14 +581,14 @@ app.get('/api/invoices', authRequired, asyncHandler(async (req, res) => {
        FROM invoices i LEFT JOIN leads l ON l.id = i.lead_id
        ORDER BY i.created_at DESC`
     );
-    return res.json(rows);
+    return res.json(rows.map((r) => withPdfUrl(r, 'invoices')));
   }
   const { rows } = await pool.query(
     `SELECT i.* FROM invoices i JOIN leads l ON l.id = i.lead_id
      WHERE l.client_id = $1 OR l.email = $2 ORDER BY i.created_at DESC`,
     [req.user.id, req.user.email]
   );
-  res.json(rows);
+  res.json(rows.map((r) => withPdfUrl(r, 'invoices')));
 }));
 
 // Helper: fetch invoice + lead with an ownership check.
@@ -572,7 +610,7 @@ app.get('/api/invoices/:id', authRequired, asyncHandler(async (req, res) => {
   const { invoice, error } = await getInvoiceForUser(id, req.user);
   if (error === 404) return res.status(404).json({ error: 'Invoice not found' });
   if (error === 403) return res.status(403).json({ error: 'Insufficient permissions' });
-  res.json(invoice);
+  res.json(withPdfUrl(invoice, 'invoices'));
 }));
 
 // Owner: initiate online payment. Returns PayFast form fields to POST.

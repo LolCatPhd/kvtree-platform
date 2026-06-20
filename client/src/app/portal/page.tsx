@@ -20,14 +20,14 @@ interface Quote {
   price: string | number | null;
   details: string | null;
   status: string;
-  pdf_path: string | null;
+  pdf_url: string | null;
 }
 interface Invoice {
   id: number;
   lead_id: number;
   amount: string | number;
   status: string;
-  pdf_path: string | null;
+  pdf_url: string | null;
 }
 
 const PIPELINE = ['Quote Requested', 'Site Visit Scheduled', 'Quoted', 'Booked', 'In Progress', 'Completed', 'Invoiced'];
@@ -192,9 +192,9 @@ export default function PortalPage() {
                       <span className="text-xs text-forest-400">Status: {q.status}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      {q.pdf_path && (
+                      {q.pdf_url && (
                         <a
-                          href={apiPath(q.pdf_path)}
+                          href={apiPath(q.pdf_url)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="rounded-full border border-forest-200 px-3 py-1.5 text-sm font-semibold text-forest-800 transition hover:bg-forest-50"
@@ -249,9 +249,9 @@ export default function PortalPage() {
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
-                    {inv.pdf_path && (
+                    {inv.pdf_url && (
                       <a
-                        href={apiPath(inv.pdf_path)}
+                        href={apiPath(inv.pdf_url)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="rounded-full border border-forest-200 px-3 py-1.5 text-sm font-semibold text-forest-800 transition hover:bg-forest-50"
