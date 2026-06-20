@@ -109,10 +109,10 @@ export default function Home() {
                 Get a free quote <ArrowRightIcon className="h-4 w-4" />
               </Link>
               <a
-                href="tel:+27111234567"
+                href="tel:+27833022877"
                 className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/5 px-7 py-3.5 font-semibold text-white backdrop-blur-sm transition hover:bg-white/10"
               >
-                <PhoneIcon className="h-4 w-4" /> +27 11 123 4567
+                <PhoneIcon className="h-4 w-4" /> +27 83 302 2877
               </a>
             </div>
             <div className="animate-rise-400 mt-10 flex flex-wrap gap-x-6 gap-y-2 text-sm text-forest-100">
@@ -364,7 +364,7 @@ export default function Home() {
                   Request your free quote <ArrowRightIcon className="h-4 w-4" />
                 </Link>
                 <a
-                  href="tel:+27111234567"
+                  href="tel:+27833022877"
                   className="inline-flex items-center gap-2 rounded-full border border-white/30 px-7 py-3.5 font-semibold text-white transition hover:bg-white/10"
                 >
                   <PhoneIcon className="h-4 w-4" /> Call us now

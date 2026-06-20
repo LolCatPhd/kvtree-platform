@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { apiPath } from '@/lib/config';
 
 const LeadMap = dynamic(() => import('@/components/LeadMap'), { ssr: false });
 
@@ -58,7 +59,7 @@ export default function AdminPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [tab, setTab] = useState<'pipeline' | 'map' | 'campaigns'>('pipeline');
+  const [tab, setTab] = useState<'pipeline' | 'map' | 'billing' | 'campaigns'>('pipeline');
   const [selected, setSelected] = useState<Lead | null>(null);
   const [showAddWorker, setShowAddWorker] = useState(false);
   const [dragId, setDragId] = useState<number | null>(null);
@@ -105,6 +106,7 @@ export default function AdminPage() {
   const tabs: { key: typeof tab; label: string }[] = [
     { key: 'pipeline', label: 'Pipeline' },
     { key: 'map', label: 'Map' },
+    { key: 'billing', label: 'Billing' },
     ...(user.role === 'admin' ? [{ key: 'campaigns' as const, label: 'Campaigns' }] : []),
   ];
 
@@ -227,6 +229,8 @@ export default function AdminPage() {
           <div className="overflow-hidden rounded-2xl ring-1 ring-forest-100">
             <LeadMap leads={leads} />
           </div>
+        ) : tab === 'billing' ? (
+          <Billing />
         ) : (
           <Campaigns />
         )}
@@ -486,6 +490,146 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div className="mt-4 border-t border-forest-100 pt-4">
       <h3 className="mb-2 text-sm font-semibold text-forest-700">{title}</h3>
       {children}
+    </div>
+  );
+}
+
+interface QuoteRow {
+  id: number;
+  lead_id: number;
+  lead_name: string | null;
+  lead_service: string | null;
+  price: string | number | null;
+  status: string;
+  pdf_path: string | null;
+  created_at: string;
+}
+interface InvoiceRow {
+  id: number;
+  lead_id: number;
+  lead_name: string | null;
+  lead_service: string | null;
+  amount: string | number;
+  status: string;
+  pdf_path: string | null;
+  created_at: string;
+}
+
+const rand = (n: number | string | null) =>
+  `R ${Number(n || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`;
+const shortDate = (d: string) => new Date(d).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' });
+
+function StatusPill({ status }: { status: string }) {
+  const tone =
+    status === 'Paid' || status === 'Accepted'
+      ? 'bg-emerald-100 text-emerald-700'
+      : status === 'Rejected'
+      ? 'bg-red-100 text-red-700'
+      : 'bg-amber-100 text-amber-700';
+  return <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${tone}`}>{status}</span>;
+}
+
+function Billing() {
+  const [quotes, setQuotes] = useState<QuoteRow[]>([]);
+  const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
+  const [view, setView] = useState<'quotes' | 'invoices'>('quotes');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([api<QuoteRow[]>('/api/quotes'), api<InvoiceRow[]>('/api/invoices')])
+      .then(([q, i]) => {
+        setQuotes(q);
+        setInvoices(i);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const quotesTotal = quotes.reduce((s, q) => s + Number(q.price || 0), 0);
+  const invoicesTotal = invoices.reduce((s, i) => s + Number(i.amount || 0), 0);
+  const outstanding = invoices.filter((i) => i.status !== 'Paid').reduce((s, i) => s + Number(i.amount || 0), 0);
+
+  const rows = view === 'quotes' ? quotes : invoices;
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex gap-1 rounded-full bg-white p-1 ring-1 ring-forest-100">
+          {(['quotes', 'invoices'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium capitalize transition ${
+                view === v ? 'bg-forest-900 text-white' : 'text-forest-700 hover:bg-forest-50'
+              }`}
+            >
+              {v} ({v === 'quotes' ? quotes.length : invoices.length})
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs">
+          <span className="rounded-full bg-forest-50 px-3 py-1.5 font-semibold text-forest-700">
+            Quoted value: {rand(quotesTotal)}
+          </span>
+          <span className="rounded-full bg-forest-50 px-3 py-1.5 font-semibold text-forest-700">
+            Invoiced: {rand(invoicesTotal)}
+          </span>
+          <span className="rounded-full bg-amber-50 px-3 py-1.5 font-semibold text-amber-700">
+            Outstanding: {rand(outstanding)}
+          </span>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-forest-100">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-forest-100 text-left text-xs uppercase tracking-wide text-forest-400">
+              <th className="px-4 py-3 font-semibold">#</th>
+              <th className="px-4 py-3 font-semibold">Client</th>
+              <th className="px-4 py-3 font-semibold">Service</th>
+              <th className="px-4 py-3 text-right font-semibold">Amount</th>
+              <th className="px-4 py-3 font-semibold">Status</th>
+              <th className="px-4 py-3 font-semibold">Date</th>
+              <th className="px-4 py-3 font-semibold">PDF</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading && (
+              <tr><td colSpan={7} className="px-4 py-10 text-center text-forest-400">Loading…</td></tr>
+            )}
+            {!loading && rows.length === 0 && (
+              <tr><td colSpan={7} className="px-4 py-10 text-center text-forest-400">No {view} yet.</td></tr>
+            )}
+            {rows.map((r) => {
+              const amount = view === 'quotes' ? (r as QuoteRow).price : (r as InvoiceRow).amount;
+              return (
+                <tr key={r.id} className="border-b border-forest-50 last:border-0 hover:bg-sand-50/60">
+                  <td className="px-4 py-3 font-semibold text-forest-900">{r.id}</td>
+                  <td className="px-4 py-3 text-forest-800">{r.lead_name || `Lead #${r.lead_id}`}</td>
+                  <td className="px-4 py-3 text-forest-500">{r.lead_service || '—'}</td>
+                  <td className="px-4 py-3 text-right font-semibold text-forest-900">{rand(amount)}</td>
+                  <td className="px-4 py-3"><StatusPill status={r.status} /></td>
+                  <td className="px-4 py-3 text-forest-500">{shortDate(r.created_at)}</td>
+                  <td className="px-4 py-3">
+                    {r.pdf_path ? (
+                      <a
+                        href={apiPath(r.pdf_path)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-forest-700 hover:underline"
+                      >
+                        View
+                      </a>
+                    ) : (
+                      <span className="text-forest-300">—</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
