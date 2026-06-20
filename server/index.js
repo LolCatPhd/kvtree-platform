@@ -336,8 +336,17 @@ app.post('/api/quotes', authRequired, requireRole('admin', 'worker'), asyncHandl
 app.get('/api/quotes', authRequired, asyncHandler(async (req, res) => {
   if (isStaff(req.user)) {
     const { rows } = req.query.leadId
-      ? await pool.query('SELECT * FROM quotes WHERE lead_id = $1 ORDER BY created_at DESC', [parseId(req.query.leadId)])
-      : await pool.query('SELECT * FROM quotes ORDER BY created_at DESC');
+      ? await pool.query(
+          `SELECT q.*, l.name AS lead_name, l.service AS lead_service
+           FROM quotes q LEFT JOIN leads l ON l.id = q.lead_id
+           WHERE q.lead_id = $1 ORDER BY q.created_at DESC`,
+          [parseId(req.query.leadId)]
+        )
+      : await pool.query(
+          `SELECT q.*, l.name AS lead_name, l.service AS lead_service
+           FROM quotes q LEFT JOIN leads l ON l.id = q.lead_id
+           ORDER BY q.created_at DESC`
+        );
     return res.json(rows);
   }
   // Clients: quotes attached to their leads only.
@@ -529,7 +538,11 @@ app.post('/api/invoices', authRequired, requireRole('admin', 'worker'), asyncHan
 
 app.get('/api/invoices', authRequired, asyncHandler(async (req, res) => {
   if (isStaff(req.user)) {
-    const { rows } = await pool.query('SELECT * FROM invoices ORDER BY created_at DESC');
+    const { rows } = await pool.query(
+      `SELECT i.*, l.name AS lead_name, l.service AS lead_service
+       FROM invoices i LEFT JOIN leads l ON l.id = i.lead_id
+       ORDER BY i.created_at DESC`
+    );
     return res.json(rows);
   }
   const { rows } = await pool.query(

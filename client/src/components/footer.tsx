@@ -56,7 +56,7 @@ export default function Footer() {
             {[
               { Icon: FacebookIcon, href: "https://facebook.com", label: "Facebook" },
               { Icon: InstagramIcon, href: "https://instagram.com", label: "Instagram" },
-              { Icon: WhatsAppIcon, href: "https://wa.me/27111234567", label: "WhatsApp" },
+              { Icon: WhatsAppIcon, href: "https://wa.me/27833022877", label: "WhatsApp" },
             ].map(({ Icon, href, label }) => (
               <a
                 key={label}
@@ -96,8 +96,8 @@ export default function Footer() {
           <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Get in touch</h3>
           <ul className="mt-4 space-y-3.5 text-sm">
             <li>
-              <a href="tel:+27111234567" className="flex items-start gap-2.5 text-forest-200 transition hover:text-lime-accent">
-                <PhoneIcon className="mt-0.5 h-4 w-4 shrink-0" /> +27 11 123 4567
+              <a href="tel:+27833022877" className="flex items-start gap-2.5 text-forest-200 transition hover:text-lime-accent">
+                <PhoneIcon className="mt-0.5 h-4 w-4 shrink-0" /> +27 83 302 2877
               </a>
             </li>
             <li>
@@ -106,7 +106,7 @@ export default function Footer() {
               </a>
             </li>
             <li className="flex items-start gap-2.5 text-forest-200">
-              <MapPinIcon className="mt-0.5 h-4 w-4 shrink-0" /> 123 Tree Street, Kempton Park, 1619
+              <MapPinIcon className="mt-0.5 h-4 w-4 shrink-0" /> Aston Manor, Kempton Park
             </li>
             <li className="flex items-start gap-2.5 text-forest-200">
               <ClockIcon className="mt-0.5 h-4 w-4 shrink-0" /> Mon–Fri 7:00–17:00 · Sat 8:00–13:00

@@ -298,7 +298,7 @@ export default function Contact() {
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/10 text-lime-accent"><MapPinIcon className="h-5 w-5" /></span>
-                  <span><span className="block text-forest-300">Address</span><span className="font-medium">123 Tree Street, Kempton Park, 1619</span></span>
+                  <span><span className="block text-forest-300">Address</span><span className="font-medium">Aston Manor, Kempton Park</span></span>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/10 text-lime-accent"><ClockIcon className="h-5 w-5" /></span>
