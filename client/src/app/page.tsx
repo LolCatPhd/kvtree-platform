@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { services } from "@/lib/services";
@@ -12,6 +13,10 @@ import {
   StarIcon,
   PhoneIcon,
 } from "@/components/icons";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 const stats = [
   { value: "20+", label: "Years of experience" },

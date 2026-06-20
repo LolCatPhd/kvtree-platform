@@ -1,0 +1,29 @@
+# Netlify redirects for KV Tree.
+#
+# PURPOSE: preserve SEO when the old www.kvtree.co.za site is replaced by this
+# one. Every URL Google has indexed on the OLD site must 301-redirect to the
+# best matching page here, or it becomes a 404 and that ranking is lost.
+#
+# HOW TO COMPLETE THIS FILE:
+#   1. Inventory the old site's URLs (Google Search Console, its sitemap.xml,
+#      or a Screaming Frog crawl) — see docs/website-transfer-guide.md.
+#   2. Map each old path to the closest page on this site.
+#   3. Add a line per URL below, using 301 (permanent). Remove the leading "# ".
+#
+# SYNTAX:  /old-path   /new-path   301
+#
+# EXAMPLES (commented out — replace with the real old URLs before launch):
+# /index.html       /             301
+# /services.html    /services     301
+# /about-us         /about        301
+# /about-us.html    /about        301
+# /contact.php      /contact      301
+# /gallery          /portfolio    301
+# /tree-felling     /services     301
+# /stump-removal    /services     301
+#
+# Note: www-vs-non-www canonicalisation is handled by Netlify's "primary
+# domain" setting (set www.kvtree.co.za primary), not here.
+#
+# Leave no catch-all (/*) rule here — Next.js already serves a 404 for unknown
+# paths, and a catch-all would mask URLs we still need to map.

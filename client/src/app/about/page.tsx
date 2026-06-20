@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   title: "About Us",
   description:
     "KV Tree has served Kempton Park and the greater East Rand for over 20 years with certified, fully-insured tree care.",
+  alternates: { canonical: "/about" },
 };
 
 const stats = [

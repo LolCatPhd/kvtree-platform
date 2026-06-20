@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   title: "Portfolio",
   description:
     "A selection of recent KV Tree projects — tree felling, stump grinding, site clearing, pruning and emergency response across the East Rand.",
+  alternates: { canonical: "/portfolio" },
 };
 
 export default function Portfolio() {

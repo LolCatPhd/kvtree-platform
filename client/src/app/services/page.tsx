@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   title: "Services",
   description:
     "Tree felling, stump grinding, site clearing, pruning, wood sales and 24/7 emergency tree care across Kempton Park and the East Rand.",
+  alternates: { canonical: "/services" },
 };
 
 export default function Services() {
