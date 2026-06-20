@@ -239,6 +239,31 @@ async function advanceLeadStatus(leadId, currentStatus, target) {
   }
 }
 
+const stageIndex = (s) => LEAD_STATUSES.indexOf(s);
+const BOOKED_INDEX = stageIndex('Booked');
+
+// Undo a booking: cancel any Google Calendar events and clear the scheduled
+// date on the lead's job(s). Called when a card is dragged back before 'Booked'
+// or when a new quote supersedes an existing booking (re-quote).
+async function resetBooking(leadId) {
+  const { rows } = await pool.query('SELECT * FROM jobs WHERE lead_id = $1', [leadId]);
+  for (const job of rows) {
+    if (job.calendar_event_id) {
+      try {
+        await calendar.deleteEvent(job.calendar_event_id);
+      } catch (e) {
+        console.error('calendar delete error', e.message);
+      }
+    }
+    await pool.query(
+      `UPDATE jobs SET scheduled_date = NULL, calendar_event_id = NULL, calendar_link = NULL,
+         status = 'Scheduled', updated_at = now() WHERE id = $1`,
+      [job.id]
+    );
+  }
+  return rows.length;
+}
+
 async function notify({ email, phone, subject, message, attachments, mediaUrl }) {
   const tasks = [];
   if (email) tasks.push(sendEmail({ to: email, subject, text: message, html: `<p>${message}</p>`, attachments }).catch((e) => console.error('email error', e.message)));
@@ -319,6 +344,26 @@ app.put('/api/leads/:id', authRequired, requireRole('admin', 'worker'), asyncHan
   if (req.body.status && !LEAD_STATUSES.includes(req.body.status)) {
     return res.status(400).json({ error: `Invalid status. One of: ${LEAD_STATUSES.join(', ')}` });
   }
+
+  // Pipeline integrity checks when the status actually changes.
+  if (req.body.status) {
+    const curRes = await pool.query('SELECT status FROM leads WHERE id = $1', [id]);
+    if (!curRes.rows.length) return res.status(404).json({ error: 'Lead not found' });
+    const current = curRes.rows[0].status;
+    if (req.body.status !== current) {
+      // Invoiced is terminal — never move a card back out of it.
+      if (current === 'Invoiced') {
+        return res.status(409).json({
+          error: 'This job is already invoiced — that is final. Reverse the invoice before moving it back.',
+        });
+      }
+      // Dragging back before 'Booked' undoes the booking (date + calendar).
+      if (stageIndex(req.body.status) < BOOKED_INDEX && stageIndex(current) >= BOOKED_INDEX) {
+        await resetBooking(id);
+      }
+    }
+  }
+
   const { rows } = await pool.query(
     `UPDATE leads SET
        status = COALESCE($2, status),
@@ -353,6 +398,17 @@ app.post('/api/quotes', authRequired, requireRole('admin', 'worker'), asyncHandl
   const lead = leadRes.rows[0];
   if (!lead) return res.status(404).json({ error: 'Lead not found' });
 
+  // A new quote can't supersede an invoiced job — the books are closed.
+  if (lead.status === 'Invoiced') {
+    return res.status(409).json({
+      error: 'This job is already invoiced. Reverse the invoice before issuing a new quote.',
+    });
+  }
+  // Re-quote: issuing a new quote on a job that's already Booked or further
+  // resets the booking and pulls the card back to 'Quoted' so it follows the
+  // pipeline again from there.
+  const isRequote = stageIndex(lead.status) >= BOOKED_INDEX;
+
   const inserted = await pool.query(
     `INSERT INTO quotes (lead_id, price, details, status, created_by)
      VALUES ($1, $2, $3, 'Sent', $4) RETURNING *`,
@@ -366,8 +422,13 @@ app.post('/api/quotes', authRequired, requireRole('admin', 'worker'), asyncHandl
   const updated = await pool.query('UPDATE quotes SET pdf_path = $2 WHERE id = $1 RETURNING *', [quote.id, pdfUrl]);
   quote = updated.rows[0];
 
-  // Advance the lead and notify the client with the quote link.
-  await advanceLeadStatus(lid, lead.status, 'Quoted');
+  // Advance (or reset) the lead and notify the client with the new quote.
+  if (isRequote) {
+    await resetBooking(lid);
+    await pool.query("UPDATE leads SET status = 'Quoted', updated_at = now() WHERE id = $1", [lid]);
+  } else {
+    await advanceLeadStatus(lid, lead.status, 'Quoted');
+  }
   // Fire-and-forget — don't block the response on email/WhatsApp delivery.
   notify({
     email: lead.email,
@@ -378,7 +439,7 @@ app.post('/api/quotes', authRequired, requireRole('admin', 'worker'), asyncHandl
     mediaUrl: pdfLink('quotes', quote.id),
   }).catch((e) => console.error('notify error', e.message));
 
-  res.status(201).json(withPdfUrl(quote, 'quotes'));
+  res.status(201).json({ ...withPdfUrl(quote, 'quotes'), requote: isRequote });
 }));
 
 app.get('/api/quotes', authRequired, asyncHandler(async (req, res) => {
@@ -698,6 +759,192 @@ app.post('/api/payments/payfast/notify', asyncHandler(async (req, res) => {
     );
     console.log(`💰 Invoice #${invoiceId} marked paid (ref ${body.pf_payment_id})`);
   }
+}));
+
+// ---------------------------------------------------------------------------
+// Crew roster + job costing
+// ---------------------------------------------------------------------------
+// The crew roster: field workers with a default daily rate. Separate from the
+// 'users' table (those are login accounts); crew don't need portal access.
+app.get('/api/workers', authRequired, requireRole('admin', 'worker'), asyncHandler(async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT * FROM workers ORDER BY active DESC, name ASC'
+  );
+  res.json(rows);
+}));
+
+app.post('/api/workers', authRequired, requireRole('admin'), asyncHandler(async (req, res) => {
+  const { name, phone, defaultDailyRate } = req.body;
+  if (!name || !String(name).trim()) return res.status(400).json({ error: 'Name is required' });
+  const { rows } = await pool.query(
+    `INSERT INTO workers (name, phone, default_daily_rate)
+     VALUES ($1, $2, $3) RETURNING *`,
+    [String(name).trim(), phone ?? null, Number(defaultDailyRate) || 0]
+  );
+  res.status(201).json(rows[0]);
+}));
+
+app.put('/api/workers/:id', authRequired, requireRole('admin'), asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Invalid id' });
+  const { name, phone, defaultDailyRate, active } = req.body;
+  const { rows } = await pool.query(
+    `UPDATE workers SET
+       name = COALESCE($2, name),
+       phone = COALESCE($3, phone),
+       default_daily_rate = COALESCE($4, default_daily_rate),
+       active = COALESCE($5, active)
+     WHERE id = $1 RETURNING *`,
+    [
+      id,
+      name != null ? String(name).trim() : null,
+      phone ?? null,
+      defaultDailyRate != null ? Number(defaultDailyRate) : null,
+      typeof active === 'boolean' ? active : null,
+    ]
+  );
+  if (!rows.length) return res.status(404).json({ error: 'Worker not found' });
+  res.json(rows[0]);
+}));
+
+// Costing for a lead: every logged worker-day plus a per-worker summary of what
+// is owed (totals split by paid / outstanding).
+async function costingForLead(leadId) {
+  const { rows: entries } = await pool.query(
+    `SELECT d.id, d.lead_id, d.worker_id, to_char(d.work_date, 'YYYY-MM-DD') AS work_date,
+            d.rate, d.paid, d.paid_at, d.payment_reference,
+            w.name AS worker_name, w.phone AS worker_phone
+     FROM job_worker_days d JOIN workers w ON w.id = d.worker_id
+     WHERE d.lead_id = $1 ORDER BY d.work_date ASC, w.name ASC`,
+    [leadId]
+  );
+  const { rows: summary } = await pool.query(
+    `SELECT w.id AS worker_id, w.name AS worker_name, w.phone AS worker_phone,
+            COUNT(*)::int AS days,
+            COALESCE(SUM(d.rate), 0) AS total,
+            COALESCE(SUM(d.rate) FILTER (WHERE NOT d.paid), 0) AS unpaid_total,
+            COUNT(*) FILTER (WHERE NOT d.paid)::int AS unpaid_days
+     FROM job_worker_days d JOIN workers w ON w.id = d.worker_id
+     WHERE d.lead_id = $1
+     GROUP BY w.id, w.name, w.phone ORDER BY w.name ASC`,
+    [leadId]
+  );
+  return { entries, summary };
+}
+
+app.get('/api/leads/:id/costing', authRequired, requireRole('admin', 'worker'), asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Invalid id' });
+  res.json(await costingForLead(id));
+}));
+
+// Log one or more days for a worker on a lead. Rate defaults to the worker's
+// current default daily rate but can be overridden. Re-logging the same day
+// updates the rate rather than erroring.
+app.post('/api/leads/:id/costing', authRequired, requireRole('admin', 'worker'), asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Invalid id' });
+  const workerId = parseId(req.body.workerId);
+  if (!workerId) return res.status(400).json({ error: 'Valid workerId required' });
+  const dates = Array.isArray(req.body.dates) ? req.body.dates : [req.body.workDate];
+  const clean = dates.filter((d) => d && /^\d{4}-\d{2}-\d{2}$/.test(d));
+  if (!clean.length) return res.status(400).json({ error: 'At least one valid work date (YYYY-MM-DD) is required' });
+
+  const wRes = await pool.query('SELECT default_daily_rate FROM workers WHERE id = $1', [workerId]);
+  if (!wRes.rows.length) return res.status(404).json({ error: 'Worker not found' });
+  const rate = req.body.rate != null ? Number(req.body.rate) : Number(wRes.rows[0].default_daily_rate) || 0;
+
+  for (const work_date of clean) {
+    await pool.query(
+      `INSERT INTO job_worker_days (lead_id, worker_id, work_date, rate)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (lead_id, worker_id, work_date)
+       DO UPDATE SET rate = EXCLUDED.rate`,
+      [id, workerId, work_date, rate]
+    );
+  }
+  res.status(201).json(await costingForLead(id));
+}));
+
+// Edit a single logged day (rate / date / paid flag).
+app.put('/api/costing/:id', authRequired, requireRole('admin', 'worker'), asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Invalid id' });
+  const paid = typeof req.body.paid === 'boolean' ? req.body.paid : null;
+  const { rows } = await pool.query(
+    `UPDATE job_worker_days SET
+       rate = COALESCE($2, rate),
+       work_date = COALESCE($3, work_date),
+       paid = COALESCE($4, paid),
+       paid_at = CASE WHEN $4 IS TRUE THEN COALESCE(paid_at, now())
+                      WHEN $4 IS FALSE THEN NULL ELSE paid_at END,
+       payment_reference = CASE WHEN $4 IS FALSE THEN NULL ELSE payment_reference END
+     WHERE id = $1 RETURNING lead_id`,
+    [
+      id,
+      req.body.rate != null ? Number(req.body.rate) : null,
+      req.body.workDate && /^\d{4}-\d{2}-\d{2}$/.test(req.body.workDate) ? req.body.workDate : null,
+      paid,
+    ]
+  );
+  if (!rows.length) return res.status(404).json({ error: 'Entry not found' });
+  res.json(await costingForLead(rows[0].lead_id));
+}));
+
+app.delete('/api/costing/:id', authRequired, requireRole('admin', 'worker'), asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Invalid id' });
+  const { rows } = await pool.query('DELETE FROM job_worker_days WHERE id = $1 RETURNING lead_id', [id]);
+  if (!rows.length) return res.status(404).json({ error: 'Entry not found' });
+  res.json(await costingForLead(rows[0].lead_id));
+}));
+
+// Mark every outstanding day for a worker on a lead as paid, then WhatsApp the
+// worker a payment receipt. Returns the refreshed costing plus delivery status.
+app.post('/api/leads/:id/costing/pay', authRequired, requireRole('admin', 'worker'), asyncHandler(async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Invalid id' });
+  const workerId = parseId(req.body.workerId);
+  if (!workerId) return res.status(400).json({ error: 'Valid workerId required' });
+  const reference = (req.body.reference && String(req.body.reference).trim()) || 'Cash / EFT';
+
+  const wRes = await pool.query('SELECT * FROM workers WHERE id = $1', [workerId]);
+  const worker = wRes.rows[0];
+  if (!worker) return res.status(404).json({ error: 'Worker not found' });
+
+  const { rows: paidRows } = await pool.query(
+    `UPDATE job_worker_days SET paid = true, paid_at = now(), payment_reference = $3
+     WHERE lead_id = $1 AND worker_id = $2 AND NOT paid
+     RETURNING work_date, rate`,
+    [id, workerId, reference]
+  );
+  if (!paidRows.length) {
+    return res.status(400).json({ error: 'No outstanding days to pay for this worker' });
+  }
+  const total = paidRows.reduce((s, r) => s + Number(r.rate || 0), 0);
+  const leadRes = await pool.query('SELECT name, service FROM leads WHERE id = $1', [id]);
+  const lead = leadRes.rows[0] || {};
+
+  const dateList = paidRows
+    .map((r) => new Date(r.work_date).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short' }))
+    .join(', ');
+  const message =
+    `KV Tree payment receipt\n\n` +
+    `Hi ${worker.name}, you've been paid R ${total.toFixed(2)} for ${paidRows.length} day${paidRows.length === 1 ? '' : 's'} ` +
+    `on the ${lead.service || 'job'}${lead.name ? ` for ${lead.name}` : ''}.\n` +
+    `Days: ${dateList}\nReference: ${reference}\n\nThank you for your work.`;
+
+  let whatsapp = { skipped: true };
+  if (worker.phone) {
+    try {
+      whatsapp = await sendWhatsApp({ to: worker.phone, body: message });
+    } catch (e) {
+      console.error('worker receipt whatsapp error', e.message);
+      whatsapp = { error: e.message };
+    }
+  }
+  console.log(`💸 Paid ${worker.name} R${total.toFixed(2)} (${paidRows.length} days) on lead #${id} by ${req.user.email}`);
+  res.json({ ...(await costingForLead(id)), paid: { worker_id: workerId, total, days: paidRows.length }, whatsapp });
 }));
 
 // ---------------------------------------------------------------------------

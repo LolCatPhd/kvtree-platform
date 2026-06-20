@@ -130,6 +130,33 @@ async function initDb() {
       sent_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
       created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+
+    -- Crew roster for job costing. These are field workers who get paid a daily
+    -- rate; they don't need portal logins (unlike the 'worker' role in users).
+    CREATE TABLE IF NOT EXISTS workers (
+      id                 SERIAL PRIMARY KEY,
+      name               TEXT NOT NULL,
+      phone              TEXT,
+      default_daily_rate NUMERIC NOT NULL DEFAULT 0,
+      active             BOOLEAN NOT NULL DEFAULT true,
+      created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+
+    -- One row per (crew member, lead, day worked). The rate is snapshotted from
+    -- the worker's default at log time but can be overridden per day. paid marks
+    -- whether the worker has been paid for that day.
+    CREATE TABLE IF NOT EXISTS job_worker_days (
+      id                SERIAL PRIMARY KEY,
+      lead_id           INTEGER REFERENCES leads(id) ON DELETE CASCADE,
+      worker_id         INTEGER REFERENCES workers(id) ON DELETE CASCADE,
+      work_date         DATE NOT NULL,
+      rate              NUMERIC NOT NULL DEFAULT 0,
+      paid              BOOLEAN NOT NULL DEFAULT false,
+      paid_at           TIMESTAMPTZ,
+      payment_reference TEXT,
+      created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (lead_id, worker_id, work_date)
+    );
   `);
 
   // Additive migrations for databases created before these columns existed.
