@@ -271,6 +271,19 @@ async function notify({ email, phone, subject, message, attachments, mediaUrl })
   await Promise.all(tasks);
 }
 
+// Build a Google Maps navigation (directions) link to a lead's location.
+// Prefers exact coordinates; falls back to the typed address. Returns null if
+// we have nothing to point at.
+function mapsLink(lead) {
+  if (lead.latitude != null && lead.longitude != null) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${lead.latitude},${lead.longitude}`;
+  }
+  if (lead.address) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(lead.address)}`;
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Leads
 // ---------------------------------------------------------------------------
@@ -345,22 +358,24 @@ app.put('/api/leads/:id', authRequired, requireRole('admin', 'worker'), asyncHan
     return res.status(400).json({ error: `Invalid status. One of: ${LEAD_STATUSES.join(', ')}` });
   }
 
+  // Current state of the lead — needed for pipeline checks and to detect a
+  // (re)assignment so we can notify the newly assigned worker.
+  const curRes = await pool.query('SELECT status, assigned_worker_id FROM leads WHERE id = $1', [id]);
+  if (!curRes.rows.length) return res.status(404).json({ error: 'Lead not found' });
+  const current = curRes.rows[0].status;
+  const prevWorkerId = curRes.rows[0].assigned_worker_id;
+
   // Pipeline integrity checks when the status actually changes.
-  if (req.body.status) {
-    const curRes = await pool.query('SELECT status FROM leads WHERE id = $1', [id]);
-    if (!curRes.rows.length) return res.status(404).json({ error: 'Lead not found' });
-    const current = curRes.rows[0].status;
-    if (req.body.status !== current) {
-      // Invoiced is terminal — never move a card back out of it.
-      if (current === 'Invoiced') {
-        return res.status(409).json({
-          error: 'This job is already invoiced — that is final. Reverse the invoice before moving it back.',
-        });
-      }
-      // Dragging back before 'Booked' undoes the booking (date + calendar).
-      if (stageIndex(req.body.status) < BOOKED_INDEX && stageIndex(current) >= BOOKED_INDEX) {
-        await resetBooking(id);
-      }
+  if (req.body.status && req.body.status !== current) {
+    // Invoiced is terminal — never move a card back out of it.
+    if (current === 'Invoiced') {
+      return res.status(409).json({
+        error: 'This job is already invoiced — that is final. Reverse the invoice before moving it back.',
+      });
+    }
+    // Dragging back before 'Booked' undoes the booking (date + calendar).
+    if (stageIndex(req.body.status) < BOOKED_INDEX && stageIndex(current) >= BOOKED_INDEX) {
+      await resetBooking(id);
     }
   }
 
@@ -383,7 +398,36 @@ app.put('/api/leads/:id', authRequired, requireRole('admin', 'worker'), asyncHan
     ]
   );
   if (!rows.length) return res.status(404).json({ error: 'Lead not found' });
-  res.json(rows[0]);
+  const lead = rows[0];
+
+  // On a new worker assignment (e.g. scheduling the site visit), WhatsApp the
+  // assigned worker a job brief with a Google Maps navigation link to the
+  // client's address. Fire-and-forget; degrades to logging if Twilio is off.
+  const newWorkerId = req.body.assignedWorkerId ?? null;
+  if (newWorkerId && newWorkerId !== prevWorkerId) {
+    pool
+      .query('SELECT name, phone FROM users WHERE id = $1', [newWorkerId])
+      .then(({ rows: wr }) => {
+        const w = wr[0];
+        if (!w || !w.phone) {
+          console.log(`📱 [assign] worker #${newWorkerId} has no phone — no WhatsApp sent`);
+          return;
+        }
+        const link = mapsLink(lead);
+        const parts = [
+          `Hi ${w.name || 'there'}, you've been assigned a site visit / quote request from KV Tree.`,
+          `Client: ${lead.name || '—'}${lead.phone ? ` (${lead.phone})` : ''}`,
+          `Service: ${lead.service || '—'}`,
+          `Address: ${lead.address || '—'}`,
+        ];
+        if (lead.description) parts.push(`Notes: ${lead.description}`);
+        if (link) parts.push(`Navigate: ${link}`);
+        return sendWhatsApp({ to: w.phone, body: parts.join('\n') });
+      })
+      .catch((e) => console.error('worker assign whatsapp error', e.message));
+  }
+
+  res.json(lead);
 }));
 
 // ---------------------------------------------------------------------------
@@ -829,7 +873,25 @@ async function costingForLead(leadId) {
      GROUP BY w.id, w.name, w.phone ORDER BY w.name ASC`,
     [leadId]
   );
-  return { entries, summary };
+  // Job value for the profit line: prefer an accepted quote, else the most
+  // recent quote, else the lead's preliminary estimate. Labour cost is the sum
+  // of every logged crew day.
+  const { rows: qRows } = await pool.query(
+    `SELECT price FROM quotes WHERE lead_id = $1
+     ORDER BY (status = 'Accepted') DESC, created_at DESC LIMIT 1`,
+    [leadId]
+  );
+  const { rows: lRows } = await pool.query('SELECT estimated_quote FROM leads WHERE id = $1', [leadId]);
+  const quoteTotal = Number(qRows[0]?.price ?? lRows[0]?.estimated_quote ?? 0);
+  const costTotal = entries.reduce((s, e) => s + Number(e.rate || 0), 0);
+  return {
+    entries,
+    summary,
+    quoteTotal,
+    costTotal,
+    profit: quoteTotal - costTotal,
+    quoteSource: qRows[0]?.price != null ? 'quote' : lRows[0]?.estimated_quote != null ? 'estimate' : 'none',
+  };
 }
 
 app.get('/api/leads/:id/costing', authRequired, requireRole('admin', 'worker'), asyncHandler(async (req, res) => {

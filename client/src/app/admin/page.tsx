@@ -378,6 +378,15 @@ function LeadPanel({
   const [invoiceAmount, setInvoiceAmount] = useState(lead.estimated_quote ? String(lead.estimated_quote) : '');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [lastQuote, setLastQuote] = useState<{ price: string | number | null; created_at: string } | null>(null);
+
+  // Latest quote on this lead (DESC order from the API) — surfaced in the
+  // re-quote area so you can see what was last sent before pricing again.
+  useEffect(() => {
+    api<{ price: string | number | null; created_at: string }[]>(`/api/quotes?leadId=${lead.id}`)
+      .then((qs) => setLastQuote(qs[0] ?? null))
+      .catch(() => setLastQuote(null));
+  }, [lead.id]);
 
   const run = async (fn: () => Promise<void>, ok: string) => {
     setBusy(true);
@@ -537,6 +546,21 @@ function LeadPanel({
                   This job is already {lead.status}. Sending a new quote cancels the booking and returns the card to Quoted.
                 </p>
               )}
+              {lastQuote && lastQuote.price != null && (
+                <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-sand-50 px-3 py-2 text-xs text-forest-600">
+                  <span>
+                    Previous quote: <strong className="text-forest-900">{rand(lastQuote.price)}</strong>
+                    <span className="text-forest-400"> · {shortDate(lastQuote.created_at)}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPrice(String(lastQuote.price))}
+                    className="shrink-0 rounded-full bg-forest-100 px-2.5 py-1 font-semibold text-forest-700 hover:bg-forest-200"
+                  >
+                    Use
+                  </button>
+                </div>
+              )}
               <input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Final price (R)" className={`${inputClass} mb-2`} />
               <textarea value={details} onChange={(e) => setDetails(e.target.value)} placeholder="Quote details / scope of work" className={`${inputClass} mb-2`} rows={3} />
               <button
@@ -621,7 +645,14 @@ interface CostSummary {
   unpaid_total: string | number;
   unpaid_days: number;
 }
-interface Costing { entries: CostEntry[]; summary: CostSummary[] }
+interface Costing {
+  entries: CostEntry[];
+  summary: CostSummary[];
+  quoteTotal: number;
+  costTotal: number;
+  profit: number;
+  quoteSource: 'quote' | 'estimate' | 'none';
+}
 
 const today = () => new Date().toISOString().slice(0, 10);
 const dayLabel = (d: string) =>
@@ -697,7 +728,7 @@ function JobCosting({ lead, crew, onMutate }: { lead: Lead; crew: Crew[]; onMuta
         `/api/leads/${lead.id}/costing/pay`,
         { method: 'POST', body: { workerId: s.worker_id, reference } }
       );
-      setData({ entries: res.entries, summary: res.summary });
+      setData(res);
       const w = res.whatsapp || {};
       setMsg(
         w.error ? `Paid, but WhatsApp failed: ${w.error}`
@@ -717,6 +748,28 @@ function JobCosting({ lead, crew, onMutate }: { lead: Lead; crew: Crew[]; onMuta
   return (
     <Section title="Job costing">
       {msg && <div className="mb-2 rounded-lg bg-forest-50 px-3 py-2 text-xs text-forest-800">{msg}</div>}
+
+      {data && (
+        <div className="mb-3 grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-lg bg-forest-50 px-2 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-forest-400">
+              {data.quoteSource === 'estimate' ? 'Estimate' : 'Quoted'}
+            </p>
+            <p className="text-sm font-semibold text-forest-900">{rand(data.quoteTotal)}</p>
+          </div>
+          <div className="rounded-lg bg-amber-50 px-2 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-500">Labour</p>
+            <p className="text-sm font-semibold text-amber-700">{rand(data.costTotal)}</p>
+          </div>
+          <div className={`rounded-lg px-2 py-2 ${data.profit >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
+            <p className={`text-[10px] font-semibold uppercase tracking-wide ${data.profit >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>Profit</p>
+            <p className={`text-sm font-semibold ${data.profit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>{rand(data.profit)}</p>
+          </div>
+        </div>
+      )}
+      {data && data.quoteSource === 'none' && (
+        <p className="mb-2 text-[11px] text-forest-400">No quote or estimate yet — profit shows labour only until you set a price.</p>
+      )}
 
       {activeCrew.length === 0 ? (
         <p className="rounded-lg bg-sand-50 px-3 py-2 text-xs text-forest-500">
